@@ -95,12 +95,13 @@ function stripe_admin_test() {
   $form['card_number'] = array(
     '#type' => 'textfield',
     '#title' => t('Card Number:'),
-    '#size' => 20,
+    '#size' => 16,
     '#default_value' => '4242424242424242',
     '#attributes' => array(
       'autocomplete' => 'off',
       'class' => array('card-number'),
     ),
+    '#disabled' => TRUE,
   );
 
   $form['card_cvc'] = array(
@@ -112,6 +113,7 @@ function stripe_admin_test() {
       'autocomplete' => 'off',
       'class' => array('card-cvc'),
     ),
+    '#disabled' => TRUE,
   );
 
   $form['card_expiry_month'] = array(
@@ -127,7 +129,7 @@ function stripe_admin_test() {
   $form['card_expiry_year'] = array(
     '#type' => 'textfield',
     '#title' => t('/'),
-    '#size' => 2,
+    '#size' => 4,
     '#default_value' => '2020',
     '#attributes' => array(
       'class' => array('card-expiry-year'),
@@ -144,6 +146,10 @@ function stripe_admin_test() {
     '#attributes' => array(
       'class' => array('amount'),
     ),
+  );
+  $form['stripe_token'] = array(
+    '#type' => 'hidden',
+    '#title' => t('Amount:'),
   );
 
   // Attach a little custom css.
@@ -178,4 +184,10 @@ function stripe_admin_test() {
   }
 
   return $form;
+}
+
+
+
+function stripe_admin_test_submit($form, &$form_state) {
+  dpm($form_state);
 }
