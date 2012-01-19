@@ -9,116 +9,71 @@
  * Menu callback: configure Stripe API Keys
  */
 function stripe_admin_keys() {
-  $form['API_Keys'] = array(
+  $keys = array(
+    'test_secret' => t('Test Secret Key'),
+    'test_publishable' => t('Test Publishable Key'),
+    'live_secret' => t('Live Secret Key'),
+    'live_publishable' => t('Live Publishable Key'),
+  );
+  
+  $form['api_keys'] = array(
     '#type' => 'fieldset',
     '#title' => t('API Keys'),
     '#collapsible' => FALSE,
   );
 
-  $fields = array(
-    'publishable_test',
-    'publishable_live',
-    'secret_test',
-    'secret_live',
+  $active_key = variable_get('stripe_key_status', 'test');
+  
+  $form['api_keys']['stripe_key_status'] = array(
+    '#type' => 'radios',
+    '#title' => t('Stripe API Status'),
+    '#default_value' => $active_key,
+    '#options' => array(
+      'test' => t('Test'),
+      'live' => t('Live')
+    ),
+    '#description' => t('This determines which set of keys you are using.'),
   );
-
-  $active_key = variable_get('stripe_active_key', '');
-  foreach ($fields as $field) {
-    $title = ucwords(str_replace('_', ' ', $field));
-    $form['API_Keys']['stripe_' . $field] = array(
+  
+  foreach ($keys as $machine_name => $name) {
+    $form['api_keys']['stripe_' . $machine_name] = array(
       '#type' => 'textfield',
-      '#title' => t($title),
+      '#title' => $name,
       '#size' => 35,
-      '#default_value' => variable_get('stripe_' . $field, ''),
+      '#default_value' => variable_get('stripe_' . $machine_name, ''),
     );
-    $form['API_Keys']['active_' . $field] = array(
-      '#prefix' => '<div class="container-inline form-item">',
-      '#suffix' => '</div>'
-    );
-    $form['API_Keys']['active_' . $field][$field] = array(
-      '#type' => 'radio',
-      '#title' => t('Activate'),
-      '#return_value' => $field,
-      '#default_value' => $active_key == $field,
-      '#parents' => array('stripe_active_key'),
-    );
-    if ($active_key == $field) {
-      $form['API_Keys']['active_' . $field][$field]['#attributes'] = array('class' => array('active'));
-      $form['API_Keys']['active_' . $field][$field]['#title'] = t('Active');
-    }
   }
-
-  // Attach a little custom css.
-  $form['#attached']['css'] = array(
-    drupal_get_path('module', 'stripe') . '/stripe.css',
-  );
-
-  // Attach a little custom js.
-  $form['#attached']['js'] = array(
-    drupal_get_path('module', 'stripe') . '/stripe.js',
-  );
-
-  $form['#submit'][] = 'stripe_admin_config_submit';
-
   return system_settings_form($form);
 }
 
-/**
- * Process result from stripe config form.
- */
-function stripe_admin_config_submit($form, &$form_state) {
-
-}
-
 function stripe_admin_test() {
-/* From example on https://stripe.com/api
-
-<form action="" method="POST" id="payment-form">
-    <div class="form-row">
-        <label>Card Number</label>
-        <input type="text" size="20" autocomplete="off" class="card-number"/>
-    </div>
-    <div class="form-row">
-        <label>CVC</label>
-        <input type="text" size="4" autocomplete="off" class="card-cvc"/>
-    </div>
-    <div class="form-row">
-        <label>Expiration (MM/YYYY)</label>
-        <input type="text" size="2" class="card-expiry-month"/>
-        <span> / </span>
-        <input type="text" size="4" class="card-expiry-year"/>
-    </div>
-    <button type="submit" class="submit-button">Submit Payment</button>
-</form>
-
-*/
   $form['card_number'] = array(
     '#type' => 'textfield',
     '#title' => t('Card Number:'),
     '#size' => 16,
-    '#default_value' => '4242424242424242',
     '#attributes' => array(
       'autocomplete' => 'off',
       'class' => array('card-number'),
     ),
     '#disabled' => TRUE,
+    '#description' => t('Use 4242424242424242 for testing')
   );
 
   $form['card_cvc'] = array(
     '#type' => 'textfield',
     '#title' => t('CVC:'),
     '#size' => 4,
-    '#default_value' => '123',
     '#attributes' => array(
       'autocomplete' => 'off',
       'class' => array('card-cvc'),
     ),
     '#disabled' => TRUE,
+    '#description' => t('Use 123 for testing')
   );
 
   $form['card_expiry_month'] = array(
     '#type' => 'textfield',
-    '#title' => t('Expiration (MM/YYYY):'),
+    '#title' => t('Expiration Month'),
     '#size' => 2,
     '#default_value' => '10',
     '#attributes' => array(
@@ -128,7 +83,7 @@ function stripe_admin_test() {
 
   $form['card_expiry_year'] = array(
     '#type' => 'textfield',
-    '#title' => t('/'),
+    '#title' => t('Expiration Year'),
     '#size' => 4,
     '#default_value' => '2020',
     '#attributes' => array(
@@ -139,8 +94,7 @@ function stripe_admin_test() {
   $form['amount'] = array(
     '#type' => 'textfield',
     '#title' => t('Amount:'),
-    '#prefix' => '<div class="container-inline form-item">',
-    '#suffix' => '<em>cents</em></div>',
+    '#description' => '<em>cents</em>',
     '#default_value' => 99,
     '#size' => 6,
     '#attributes' => array(
@@ -152,15 +106,13 @@ function stripe_admin_test() {
     '#title' => t('Amount:'),
   );
 
-  // Attach a little custom css.
-  $form['#attached']['css'] = array(
-    drupal_get_path('module', 'stripe') . '/stripe.css',
-  );
-
   // Retrieve the active API Key.
-  $active_key_name = variable_get('stripe_active_key', '');
-  $active_key = variable_get('stripe_' . $active_key_name, '');
-  if ($active_key !== '') {
+  //TODO abstract this mess.
+  $status = variable_get('stripe_key_status', 'test');
+  $pub_key_name = 'stripe_' . $status . '_publishable';
+  $pub_key = variable_get($pub_key_name, '');
+  
+  if ($pub_key !== '') {
     // Add the submit button. Can't submit without a key.
     $form['card_submit'] = array(
       '#type' => 'submit',
@@ -177,7 +129,7 @@ function stripe_admin_test() {
       ),
       drupal_get_path('module', 'stripe') . '/stripe.js',
       // And set our key.
-      'jQuery(document).ready(function () { Stripe.setPublishableKey("' . $active_key . '"); });' => array(
+      'jQuery(document).ready(function () { Stripe.setPublishableKey("' . $pub_key . '"); });' => array(
         'type' => 'inline', 'scope' => 'footer', 'weight' => 5
       ),
     );

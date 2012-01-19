@@ -45,16 +45,6 @@ function stripe_theme() {
  * Implements hook_menu().
  */
 function stripe_menu() {
-  $items['admin/config/stripe'] = array(
-    'title' => 'Stripe',
-    'description' => 'List of what the stripe module offers.',
-    'position' => 'right',
-    'page callback' => 'system_admin_menu_block_page',
-    'access arguments' => array('administer stripe'),
-    'weight' => -10,
-    'file' => 'system.admin.inc',
-  );
-
   $items['admin/config/stripe/keys'] = array(
     'title' => 'API Keys',
     'description' => 'Enter API Keys and set which one should be active.',
