@@ -141,5 +141,20 @@ function stripe_admin_test() {
 
 
 function stripe_admin_test_submit($form, &$form_state) {
-  dpm($form_state);
+  require_once("sites/all/libraries/stripe/lib/Stripe.php");
+  
+  $status = variable_get('stripe_key_status', 'test');
+  $secret_key_name = 'stripe_' . $status . '_secret';
+  $secret_key = variable_get($secret_key_name, '');
+  
+  Stripe::setApiKey($secret_key);
+  
+  $charge = Stripe_Charge::create(array(
+    "amount" => $form_state['values']['amount'], // amount in cents, again
+    "currency" => "usd",
+    "card" => $form_state['values']['stripe_token'],
+    "description" => "Test Charge from " . variable_get('site_name', 'My Drupal Site'))
+  );
+  //TODO Check on error handling here;
+  drupal_set_message("Success! Card was successfully charged for the amount of " . check_plain($form_state['values']['amount']));
 }

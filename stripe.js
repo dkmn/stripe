@@ -37,8 +37,6 @@ Drupal.behaviors.stripeFormFix = {
         $('input[name=stripe_token]').val(token);
         // and submit
         form$.get(0).submit();
-
-        alert('done');
       }
     }
   }

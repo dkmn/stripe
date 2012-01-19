@@ -70,17 +70,15 @@ function stripe_menu() {
 /**
  * Implements hook_requirements().
  */
-
 function stripe_requirements($phase) {
   $requirements = array();
-  // Ensure translations don't break at install time
   if ($phase == 'runtime') {
-    $requirements['stripe'] = stripe_requirement_check();
+    $requirements['stripe'] = _stripe_requirement_check();
   }
   return $requirements;
 }
 
-function stripe_requirement_check() {
+function _stripe_requirement_check() {
   $t = get_t();
   if (file_exists('sites/all/libraries/stripe/lib/Stripe.php')) {
     return array(
