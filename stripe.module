@@ -9,7 +9,7 @@
  * Implements hook_help().
  */
 function stripe_help($path, $arg) {
-  if ($path == 'admin/config/stripe/keys') {
+  if ($path == 'admin/config/stripe/admin/keys') {
     $output = '<ol>';
     $output .= '<li>' . t('Enter the API keys you get from your <a href="@url">Stripe account page</a>.', array('@url' => 'https://manage.stripe.com/account')) . '</li>';
     $output .= '<li>' . t('Use the radio buttons to choose which API Key should be used with this site.') . '</li>';
@@ -17,7 +17,7 @@ function stripe_help($path, $arg) {
     $output .= '</ol>';
     return $output;
   }
-  if ($path == 'admin/config/stripe/test') {
+  if ($path == 'admin/config/stripe/admin/test') {
     return '<p>' . t('This form is to test responses from Stripe. The default values are accepted by Stripe for testing purposes. Before you can use this form, you should <a href="@url">designate an active API Key</a>.', array('@url' => '/admin/config/stripe/keys')) . '</p>';
   }
 }
@@ -45,7 +45,17 @@ function stripe_theme() {
  * Implements hook_menu().
  */
 function stripe_menu() {
-  $items['admin/config/stripe/keys'] = array(
+  $items['admin/config/stripe'] = array(
+    'title' => 'Stripe Payment Gateway',
+    'description' => 'Configuration, and testing',
+    'page callback' => 'system_admin_menu_block_page',
+    'access arguments' => array('access workbench'),
+    'position' => 'right',
+    'file' => 'system.admin.inc',
+    'file path' => drupal_get_path('module', 'system'),
+  );
+
+  $items['admin/config/stripe/admin/keys'] = array(
     'title' => 'API Keys',
     'description' => 'Enter API Keys and set which one should be active.',
     'page callback' => 'drupal_get_form',
@@ -54,7 +64,7 @@ function stripe_menu() {
     'file' => 'stripe.admin.inc',
   );
 
-  $items['admin/config/stripe/test'] = array(
+  $items['admin/config/stripe/admin/test'] = array(
     'title' => 'Test form',
     'description' => 'A form for testing Stripe responses.',
     'page callback' => 'drupal_get_form',

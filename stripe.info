@@ -1,8 +1,8 @@
 name = Stripe
-description = Integration with the stripe service. https://stripe.com/
-package = Commerce
+description = Integration with the Stripe payment Gateway. https://stripe.com/
+package = Stripe
 version = VERSION
 core = 7.x
 files[] = stripe.module
 files[] = stripe.admin.inc
-configure = admin/config/stripe
+configure = admin/config/stripe/admin/keys
