@@ -70,7 +70,7 @@ function stripe_menu() {
     'page callback' => 'drupal_get_form',
     'page arguments' => array('stripe_admin_test'),
     'access arguments' => array('administer stripe'),
-    'file' => 'stripe.admin.inc',
+    'file' => 'stripe.test.inc',
   );
 
   return $items;
@@ -104,4 +104,101 @@ function _stripe_requirement_check() {
       'severity' => REQUIREMENT_ERROR,
     );
   }
+}
+
+/**
+ * Helper function to go fetch the normal form elements.
+ */
+function stripe_form_default_items() {
+  $form = array();
+  $form['card_number'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Card Number:'),
+    '#size' => 16,
+    '#attributes' => array(
+      'autocomplete' => 'off',
+      'class' => array('card-number'),
+    ),
+    '#disabled' => TRUE,
+  );
+
+  $form['card_cvc'] = array(
+    '#type' => 'textfield',
+    '#title' => t('CVC:'),
+    '#size' => 4,
+    '#attributes' => array(
+      'autocomplete' => 'off',
+      'class' => array('card-cvc'),
+    ),
+    '#disabled' => TRUE,
+  );
+
+  $form['card_expiry_month'] = array(
+    '#type' => 'select',
+    '#title' => t('Expiration Month'),
+    '#attributes' => array(
+      'class' => array('card-expiry-month'),
+    ),
+    '#multiple' => FALSE,
+    '#options' => array(
+      '01' => t('01 (Jan)'),
+      '02' => t('02 (Feb)'),
+      '03' => t('03 (Mar)'),
+      '04' => t('04 (Apr)'),
+      '05' => t('05 (May)'),
+      '06' => t('06 (Jun)'),
+      '07' => t('07 (Jul)'),
+      '08' => t('08 (Aug)'),
+      '09' => t('09 (Sep)'),
+      '10' => t('10 (Oct)'),
+      '11' => t('11 (Nov)'),
+      '12' => t('12 (Dec)'),
+    ),
+  );
+  
+  $current_year = date('Y');
+  $year_options = array();
+  $i = 0;
+  while ($i < 15) {
+    $year_options[$current_year] = $current_year;
+    $current_year++;
+    $i++;
+  }
+  $form['card_expiry_year'] = array(
+    '#type' => 'select',
+    '#title' => t('Expiration Year'),
+    '#attributes' => array(
+      'class' => array('card-expiry-year'),
+    ),
+    '#options' => $year_options,
+  );
+
+  $form['stripe_token'] = array(
+    '#type' => 'hidden',
+    '#title' => t('Amount:'),
+  );
+
+  // Retrieve the active API Key.
+  //TODO abstract this mess.
+  $status = variable_get('stripe_key_status', 'test');
+  $pub_key_name = 'stripe_' . $status . '_publishable';
+  $pub_key = variable_get($pub_key_name, '');
+  
+  if ($pub_key !== '') {
+    // Add the submit button. Can't submit without a key.
+
+    // Attach the javascript from Stripe.
+    $form['#attached']['js'] = array(
+      'https://js.stripe.com/v1/' => array(
+        'type' => 'external',
+      ),
+      drupal_get_path('module', 'stripe') . '/stripe.js',
+      // And set our key.
+      'jQuery(document).ready(function () { Stripe.setPublishableKey("' . $pub_key . '"); });' => array(
+        'type' => 'inline', 'scope' => 'footer', 'weight' => 5
+      ),
+    );
+  }
+
+  return $form;
 }

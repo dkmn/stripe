@@ -2,11 +2,8 @@
 
 Drupal.behaviors.stripeFormFix = {
   attach: function (context)  {
-    $('#edit-card-number').removeAttr('name').removeAttr('disabled');
-    $('#edit-card-cvc').removeAttr('name').removeAttr('disabled');
-    //$('.submit-button').attr('disabled', 'disabled');
-    $('.form-item-card-number').removeClass('form-disabled');
-    $('.form-item-card-cvc').removeClass('form-disabled');
+    $('.card-number').removeAttr('name').removeAttr('disabled').parent().removeClass('form-disabled');
+    $('.card-cvc').removeAttr('name').removeAttr('disabled').parent().removeClass('form-disabled');
     
     $("#stripe-admin-test").submit(function(event) {
         var amount = $('.amount').val();
