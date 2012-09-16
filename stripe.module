@@ -49,7 +49,7 @@ function stripe_menu() {
     'title' => 'Stripe Payment Gateway',
     'description' => 'Configuration, and testing',
     'page callback' => 'system_admin_menu_block_page',
-    'access arguments' => array('access workbench'),
+    'access arguments' => array('administer stripe'),
     'position' => 'right',
     'file' => 'system.admin.inc',
     'file path' => drupal_get_path('module', 'system'),
@@ -92,15 +92,15 @@ function _stripe_requirement_check() {
   $t = get_t();
   if (file_exists('sites/all/libraries/stripe/lib/Stripe.php')) {
     return array(
-      'title' => $t('Stripe Payment API PHP Library'), 
-      'value' => $t('Stripe PHP Library is in place. Version @version', array('@version' => file_get_contents('sites/all/libraries/stripe/VERSION'))), 
+      'title' => $t('Stripe Payment API PHP Library'),
+      'value' => $t('Stripe PHP Library is in place. Version @version', array('@version' => file_get_contents('sites/all/libraries/stripe/VERSION'))),
       'severity' => REQUIREMENT_OK,
     );
   }
   else {
     return array(
-      'title' => $t('Stripe Payment API PHP Library'), 
-      'value' => $t('The Stripe PHP Library is not in place. <a href="https://github.com/stripe/stripe-php/zipball/master">Download the and unzip the library</a> then place the contents of that directory in sites/all/libraries/stripe'), 
+      'title' => $t('Stripe Payment API PHP Library'),
+      'value' => $t('The Stripe PHP Library is not in place. <a href="https://github.com/stripe/stripe-php/zipball/master">Download the and unzip the library</a> then place the contents of that directory in sites/all/libraries/stripe'),
       'severity' => REQUIREMENT_ERROR,
     );
   }
@@ -155,7 +155,7 @@ function stripe_form_default_items() {
       '12' => t('12 (Dec)'),
     ),
   );
-  
+
   $current_year = date('Y');
   $year_options = array();
   $i = 0;
@@ -183,7 +183,7 @@ function stripe_form_default_items() {
   $status = variable_get('stripe_key_status', 'test');
   $pub_key_name = 'stripe_' . $status . '_publishable';
   $pub_key = variable_get($pub_key_name, '');
-  
+
   if ($pub_key !== '') {
     // Add the submit button. Can't submit without a key.
 
