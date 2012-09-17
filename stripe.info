@@ -3,4 +3,4 @@ description = Integration with the Stripe payment Gateway. https://stripe.com/
 package = Stripe
 version = VERSION
 core = 7.x
-configure = admin/config/stripe/admin/keys
+configure = admin/config/stripe
