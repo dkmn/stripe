@@ -119,8 +119,13 @@ function stripe_form_default_items() {
       'autocomplete' => 'off',
       'class' => array('card-number'),
     ),
+    // Will be re-enabled by javascript. This ensures that the element cannot be
+    // used unless javascript is fully functioning.
     '#disabled' => TRUE,
+    // Remove the #name field before rendering, so that this element will not
+    // get posted back to the server.
     '#pre_render' => array('stripe_element_remove_name'),
+    // Ensure the element is empty when submitted.
     '#element_validate' => array('stripe_element_validate_empty'),
   );
 
@@ -132,8 +137,13 @@ function stripe_form_default_items() {
       'autocomplete' => 'off',
       'class' => array('card-cvc'),
     ),
+    // Will be re-enabled by javascript. This ensures that the element cannot be
+    // used unless javascript is fully functioning.
     '#disabled' => TRUE,
+    // Remove the #name field before rendering, so that this element will not
+    // get posted back to the server.
     '#pre_render' => array('stripe_element_remove_name'),
+    // Ensure the element is empty when submitted.
     '#element_validate' => array('stripe_element_validate_empty'),
   );
 
