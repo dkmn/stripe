@@ -120,6 +120,8 @@ function stripe_form_default_items() {
       'class' => array('card-number'),
     ),
     '#disabled' => TRUE,
+    '#pre_render' => array('stripe_element_remove_name'),
+    '#element_validate' => array('stripe_element_validate_empty'),
   );
 
   $form['card_cvc'] = array(
@@ -131,6 +133,8 @@ function stripe_form_default_items() {
       'class' => array('card-cvc'),
     ),
     '#disabled' => TRUE,
+    '#pre_render' => array('stripe_element_remove_name'),
+    '#element_validate' => array('stripe_element_validate_empty'),
   );
 
   $form['card_expiry_month'] = array(
@@ -201,4 +205,43 @@ function stripe_form_default_items() {
   }
 
   return $form;
+}
+
+/**
+ * Element validate function to ensure that the posted value for an element is
+ * empty. We do this just to double check that credit card numbers are not
+ * getting posted to the server, as this would create PCI implications. If they
+ * are making it back to the server, we don't stop the form from processing, but
+ * we do log a severe watchdog notice.
+ */
+function stripe_element_validate_empty($element, $form_state, $form) {
+  static $logged = FALSE;
+  if (!empty($element['#value'])) {
+    // Log a watchdog message the first time only. No need to log two messages.
+    if ($logged) {
+      return;
+    }
+
+    // Set an error on the first element this happened on.
+    form_error($element, 'There was a problem processing your payment. For '   .
+                         'your own protection, it is recommended you do NOT '  .
+                         'attempt to re-enter your payment information.');
+    // Now log a watchdog alert.
+    $message = 'Credit Card information is being posted to your server. '      .
+               'Please disable Stripe module immediately and submit a bug '    .
+               'report at http://drupal.org/node/add/project-issue/stripe.';
+    watchdog('stripe', $message, NULL, WATCHDOG_ALERT);
+    $logged = TRUE;
+  }
+}
+
+/**
+ * Pre render callback for Stripe elements with sensitive information, to remove
+ * the 'name' attribute. The Stripe JS should remove these as well, but let's do
+ * our due diligence and make sure that these form elements don't get posted
+ * back to the server.
+ */
+function stripe_element_remove_name($element) {
+  unset($element['#name']);
+  return $element;
 }
