@@ -55,7 +55,7 @@ function stripe_menu() {
     'file path' => drupal_get_path('module', 'system'),
   );
 
-  $items['admin/config/stripe/admin/keys'] = array(
+  $items['admin/config/stripe/keys'] = array(
     'title' => 'API Keys',
     'description' => 'Enter API Keys and set which one should be active.',
     'page callback' => 'drupal_get_form',
@@ -64,7 +64,7 @@ function stripe_menu() {
     'file' => 'stripe.admin.inc',
   );
 
-  $items['admin/config/stripe/admin/test'] = array(
+  $items['admin/config/stripe/test'] = array(
     'title' => 'Test form',
     'description' => 'A form for testing Stripe responses.',
     'page callback' => 'drupal_get_form',
