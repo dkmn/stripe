@@ -173,9 +173,9 @@ function stripe_form_default_items() {
     '#options' => $year_options,
   );
 
+  // The stripe JS will populate this value upon successful submission.
   $form['stripe_token'] = array(
     '#type' => 'hidden',
-    '#title' => t('Amount:'),
   );
 
   // Retrieve the active API Key.
