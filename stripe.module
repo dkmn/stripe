@@ -211,8 +211,8 @@ function stripe_form_default_items() {
  * Element validate function to ensure that the posted value for an element is
  * empty. We do this just to double check that credit card numbers are not
  * getting posted to the server, as this would create PCI implications. If they
- * are making it back to the server, we don't stop the form from processing, but
- * we do log a severe watchdog notice.
+ * are making it back to the server, we stop the form from processing, and log a
+ * watchdog alert.
  */
 function stripe_element_validate_empty($element, $form_state, $form) {
   static $logged = FALSE;
