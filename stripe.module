@@ -168,13 +168,9 @@ function stripe_form_default_items() {
   );
 
   $current_year = date('Y');
-  $year_options = array();
-  $i = 0;
-  while ($i < 15) {
-    $year_options[$current_year] = $current_year;
-    $current_year++;
-    $i++;
-  }
+  $years = range($current_year, $current_year + 15);
+  $year_options = array_combine($years, $years);
+
   $form['card_expiry_year'] = array(
     '#type' => 'select',
     '#title' => t('Expiration Year'),
