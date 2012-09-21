@@ -17,12 +17,7 @@ function stripe_admin_test() {
     '#description' => '<em>cents</em>',
     '#default_value' => 99,
     '#size' => 6,
-    '#attributes' => array(
-      'class' => array('amount'),
-    ),
-    '#weight' => 2,
   );
-  $form['card_submit']['#weight'] = 3; 
   $form['card_submit'] = array(
       '#type' => 'submit',
       '#value' => t('Submit Payment'),
