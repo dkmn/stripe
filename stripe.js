@@ -16,7 +16,7 @@ Drupal.behaviors.stripeFormFix = {
         // prevent the form from submitting with the default action
         return false;
     });
-    
+
     stripeResponseHandler = function(status, response) {
       console.log(response);
       if (response.error) {
@@ -27,7 +27,7 @@ Drupal.behaviors.stripeFormFix = {
         var $form = $("#stripe-admin-test");
         // token contains id, last4, and card type
         var token = response['id'];
-        
+
         var form$ = $("#stripe-admin-test");
 
         // insert the token into the form so it gets submitted to the server
