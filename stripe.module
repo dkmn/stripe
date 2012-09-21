@@ -216,12 +216,8 @@ function stripe_form_default_items() {
  */
 function stripe_element_validate_empty($element, $form_state, $form) {
   static $logged = FALSE;
-  if (!empty($element['#value'])) {
-    // Log a watchdog message the first time only. No need to log two messages.
-    if ($logged) {
-      return;
-    }
-
+  // Log a watchdog message the first time only. No need to log two messages.
+  if (!empty($element['#value']) && !$logged) {
     // Set an error on the first element this happened on.
     form_error($element, 'There was a problem processing your payment. For '   .
                          'your own protection, it is recommended you do NOT '  .
