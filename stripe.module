@@ -237,8 +237,7 @@ function stripe_element_validate_empty($element, $form_state, $form) {
 
 /**
  * Pre render callback for Stripe elements with sensitive information, to remove
- * the 'name' attribute. The Stripe JS should remove these as well, but let's do
- * our due diligence and make sure that these form elements don't get posted
+ * the 'name' attribute. This ensures that the browser doesn't post the values
  * back to the server.
  */
 function stripe_element_remove_name($element) {

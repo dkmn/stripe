@@ -2,9 +2,9 @@
 
 Drupal.behaviors.stripeFormFix = {
   attach: function (context)  {
-    $('.card-number').removeAttr('name').removeAttr('disabled').parent().removeClass('form-disabled');
-    $('.card-cvc').removeAttr('name').removeAttr('disabled').parent().removeClass('form-disabled');
-    
+    $('.card-number').removeAttr('disabled').parent().removeClass('form-disabled');
+    $('.card-cvc').removeAttr('disabled').parent().removeClass('form-disabled');
+
     $("#stripe-admin-test").submit(function(event) {
         var amount = $('.amount').val();
         Stripe.createToken({
