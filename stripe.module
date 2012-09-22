@@ -185,15 +185,7 @@ function stripe_form_default_items() {
     '#type' => 'hidden',
   );
 
-  // Retrieve the active API Key.
-  //TODO abstract this mess.
-  $status = variable_get('stripe_key_status', 'test');
-  $pub_key_name = 'stripe_' . $status . '_publishable';
-  $pub_key = variable_get($pub_key_name, '');
-
-  if ($pub_key !== '') {
-    // Add the submit button. Can't submit without a key.
-
+  if ($pub_key = stripe_get_publishable_key()) {
     // Attach the javascript from Stripe.
     $form['#attached']['js'] = array(
       'https://js.stripe.com/v1/' => array(
@@ -242,4 +234,33 @@ function stripe_element_validate_empty($element, $form_state, $form) {
 function stripe_element_remove_name($element) {
   unset($element['#name']);
   return $element;
+}
+
+/**
+ * Initialize the Stripe PHP Library with the configured secret key.
+ */
+function stripe_initialize() {
+  $inited = &drupal_static(__FUNCTION__);
+
+  // No need to do anything if we've already initialized.
+  if (isset($inited)) {
+    return;
+  }
+
+  $status = variable_get('stripe_key_status', 'test');
+  $secret_key_name = 'stripe_' . $status . '_secret';
+  $secret_key = variable_get($secret_key_name, '');
+
+  empty($secret_key) ? NULL : Stripe::setApiKey($secret_key);
+  $inited = TRUE;
+}
+
+/**
+ * Get the Stripe publishable key.
+ */
+function stripe_get_publishable_key() {
+  $status = variable_get('stripe_key_status', 'test');
+  $pub_key_name = 'stripe_' . $status . '_publishable';
+  $pub_key = variable_get($pub_key_name, '');
+  return $pub_key;
 }
