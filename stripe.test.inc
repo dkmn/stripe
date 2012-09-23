@@ -30,8 +30,6 @@ function stripe_admin_test() {
 
 
 function stripe_admin_test_submit($form, &$form_state) {
-  require_once("sites/all/libraries/stripe/lib/Stripe.php");
-
   stripe_initialize();
 
   $charge = Stripe_Charge::create(array(

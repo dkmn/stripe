@@ -247,6 +247,8 @@ function stripe_initialize() {
     return;
   }
 
+  require_once("sites/all/libraries/stripe/lib/Stripe.php");
+
   $status = variable_get('stripe_key_status', 'test');
   $secret_key_name = 'stripe_' . $status . '_secret';
   $secret_key = variable_get($secret_key_name, '');
