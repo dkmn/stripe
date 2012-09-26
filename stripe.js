@@ -62,7 +62,7 @@ stripeResponseHandler = function(status, response) {
     // insert the token into the form so it gets submitted to the server
     $('input[name=stripe_token]').val(token);
     // and submit
-    form$.submit();
+    form$.get(0).submit();
   }
 };
 
