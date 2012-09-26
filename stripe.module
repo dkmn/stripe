@@ -105,14 +105,14 @@ function _stripe_requirement_check() {
  * Helper function to go fetch the normal form elements.
  */
 function stripe_form_default_items() {
-  $form = array();
+  $identifier = stripe_form_identifier();
   $form['card_number'] = array(
     '#type' => 'textfield',
     '#title' => t('Card Number'),
     '#size' => 16,
     '#attributes' => array(
       'autocomplete' => 'off',
-      'class' => array('card-number'),
+      'class' => array('stripe-number', $identifier),
     ),
   );
 
@@ -195,6 +195,24 @@ function stripe_form_default_items() {
   }
 
   return $form;
+}
+
+/**
+ * Return a unique identifier for each stripe form per page load. This is used
+ * in the stripe.js to know which form was submitted.
+ */
+function stripe_form_identifier() {
+  $i = &drupal_static(__FUNCTION__, 1);
+  return 'stripe-form-' . $i++;
+}
+
+/**
+ * Validate the stripe token to be sure that it was set by the javascript.
+ */
+function stripe_token_element_validate($element, $form_state, $form) {
+  if (empty($element['#value'])) {
+    form_error($element, t('There was a problem processing your payment.'));
+  }
 }
 
 /**
