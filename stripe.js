@@ -2,14 +2,6 @@
 
 Drupal.behaviors.stripeFormFix = {
   attach: function (context, settings)  {
-    // This function must stay in here since we need context.
-    stripeFormBindHandler = function (index, value) {
-      // The identifier is a class on the card field.
-      $('.stripe-number.' + value, context)
-        .closest('form')
-        .submit(stripeSubmitHandler);
-    };
-
     // Enable the form elements and clean up any classes.
     $('.stripe-number, .stripe-cvc', context)
       .removeAttr('disabled')
@@ -20,7 +12,12 @@ Drupal.behaviors.stripeFormFix = {
     Stripe.setPublishableKey(settings.stripe.pubKey);
 
     // Now bind the submit handler to each form.
-    $.each(settings.stripe.identifiers, stripeFormBindHandler);
+    $.each(settings.stripe.identifiers, function (index, value) {
+      // The identifier is a class on the card field.
+      $('.stripe-number.' + value, context)
+        .closest('form')
+        .submit(stripeSubmitHandler);
+    });
   }
 };
 
