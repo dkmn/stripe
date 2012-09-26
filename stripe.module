@@ -35,13 +35,6 @@ function stripe_permission() {
 }
 
 /**
- * Implements hook_theme().
-
-function stripe_theme() {
-
-}
-
-/**
  * Implements hook_menu().
  */
 function stripe_menu() {
@@ -76,7 +69,6 @@ function stripe_menu() {
   return $items;
 }
 
-
 /**
  * Implements hook_requirements().
  */
@@ -88,6 +80,9 @@ function stripe_requirements($phase) {
   return $requirements;
 }
 
+/**
+ * Helper function to hook_requirements.
+ */
 function _stripe_requirement_check() {
   $t = get_t();
   if (file_exists('sites/all/libraries/stripe/lib/Stripe.php')) {
