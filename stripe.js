@@ -24,6 +24,9 @@ Drupal.behaviors.stripeFormFix = {
   }
 };
 
+/**
+ * Submit a form to Stripe to create a token. Clears out all errors.
+ */
 stripeSubmitHandler = function (eventObject) {
   // Add a submitted class so we can find this item in the response handler.
   $(this).addClass('stripe-submitted');
@@ -44,6 +47,10 @@ stripeSubmitHandler = function (eventObject) {
   return false;
 };
 
+/**
+ * Handle a Stripe response, displaying errors if necessary. Otherwise, this
+ * will submit the form to Drupal.
+ */
 stripeResponseHandler = function(status, response) {
   console.log(response);
   var form$ = $('.stripe-submitted');
