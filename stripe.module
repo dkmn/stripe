@@ -47,7 +47,6 @@ function stripe_menu() {
     'file' => 'system.admin.inc',
     'file path' => drupal_get_path('module', 'system'),
   );
-
   $items['admin/config/stripe/keys'] = array(
     'title' => 'API Keys',
     'description' => 'Enter API Keys and set which one should be active.',
@@ -56,7 +55,6 @@ function stripe_menu() {
     'access arguments' => array('administer stripe'),
     'file' => 'stripe.admin.inc',
   );
-
   $items['admin/config/stripe/test'] = array(
     'title' => 'Test form',
     'description' => 'A form for testing Stripe responses.',
@@ -64,6 +62,12 @@ function stripe_menu() {
     'page arguments' => array('stripe_admin_test'),
     'access arguments' => array('administer stripe'),
     'file' => 'stripe.test.inc',
+  );
+  $items['stripe/webhooks'] = array(
+    'title' => 'Stripe Webhooks',
+    'description' => 'Handler for incoming Stripe Webhook requests.',
+    'page callback' => 'stripe_webhooks_callback',
+    'access callback' => 'user_is_anonymous',
   );
 
   return $items;
@@ -253,6 +257,14 @@ function stripe_element_validate_empty($element, $form_state, $form) {
 function stripe_element_remove_name($element) {
   unset($element['#name']);
   return $element;
+}
+
+/**
+ * Returns TRUE if Stripe is in live mode.
+ */
+function tg_stripe_live() {
+  $status = variable_get('stripe_key_status', 'test');
+  return $status == 'live' ? TRUE : FALSE;
 }
 
 /**
