@@ -28,16 +28,27 @@ function stripe_admin_test() {
   return $form;
 }
 
+function stripe_admin_test_validate($form, &$form_state) {
+  stripe_initialize();
+  $charge = NULL;
+
+  try {
+    $charge = Stripe_Charge::create(array(
+      "amount" => $form_state['values']['amount'], // amount in cents, again
+      "currency" => "usd",
+      "card" => $form_state['values']['stripe_token'],
+      "description" => "Test Charge from " . variable_get('site_name', 'My Drupal Site'))
+    );
+  }
+  catch (Exception $e) {
+    form_set_error('', $e->getMessage());
+    return;
+  }
+
+  $form_state['storage']['charge'] = $charge;
+}
+
 
 function stripe_admin_test_submit($form, &$form_state) {
-  stripe_initialize();
-
-  $charge = Stripe_Charge::create(array(
-    "amount" => $form_state['values']['amount'], // amount in cents, again
-    "currency" => "usd",
-    "card" => $form_state['values']['stripe_token'],
-    "description" => "Test Charge from " . variable_get('site_name', 'My Drupal Site'))
-  );
-  //TODO Check on error handling here;
   drupal_set_message("Success! Card was successfully charged for the amount of " . check_plain($form_state['values']['amount']));
 }
