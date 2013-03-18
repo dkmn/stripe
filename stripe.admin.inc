@@ -15,7 +15,7 @@ function stripe_admin_keys() {
     'live_secret' => t('Live Secret Key'),
     'live_publishable' => t('Live Publishable Key'),
   );
-  
+
   $form['api_keys'] = array(
     '#type' => 'fieldset',
     '#title' => t('API Keys'),
@@ -23,7 +23,7 @@ function stripe_admin_keys() {
   );
 
   $active_key = variable_get('stripe_key_status', 'test');
-  
+
   $form['api_keys']['stripe_key_status'] = array(
     '#type' => 'radios',
     '#title' => t('Stripe API Status'),
@@ -34,7 +34,7 @@ function stripe_admin_keys() {
     ),
     '#description' => t('This determines which set of keys you are using.'),
   );
-  
+
   foreach ($keys as $machine_name => $name) {
     $form['api_keys']['stripe_' . $machine_name] = array(
       '#type' => 'textfield',
@@ -43,5 +43,13 @@ function stripe_admin_keys() {
       '#default_value' => variable_get('stripe_' . $machine_name, ''),
     );
   }
+
+  $form['stripe_log_webhooks'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Log Webhooks'),
+    '#description' => t('This will log all valid webhook requests with their event data to the db log.'),
+    '#default_value' => variable_get('stripe_log_webhooks', 0)
+  );
+
   return system_settings_form($form);
 }

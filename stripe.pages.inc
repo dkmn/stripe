@@ -13,13 +13,17 @@ function stripe_webhooks_callback() {
   $body = @file_get_contents('php://input');
   $event = json_decode($body);
   // For additional security - retrieve event data from ID
-  $event = Stripe_Event::retrieve($event->id);
-
-  // Invoke hook_stripe_webhook().
-  module_invoke_all('stripe_webhook', $event);
-
-  // Support for logging webhooks. (Setting be implemented in the admin UI)
-  if (variable_get('stripe_log_webhooks', 0) == 1) {
-    watchdog('stripe', 'Stripe Webhook ' . $event->type . ': <pre>' . print_r($event, TRUE) . '</pre>');
+  if (is_object($event) && isset($event->id)) {
+    $event = Stripe_Event::retrieve($event->id);
+    if (is_object($event) && isset($event->id)) {
+      module_invoke_all('stripe_webhook', $event);
+      if (variable_get('stripe_log_webhooks', 0) == 1) {
+        watchdog('stripe', 'Stripe Webhook ' . $event->type . ': <pre>' . print_r($event, TRUE) . '</pre>');
+      }
+      return 'OK';
+    }
   }
+  // Something went wrong if we got here so return 404 and Stripe will send it again.
+  // This also serves as security for unauthorized access to this endpoint.
+  drupal_not_found();
 }

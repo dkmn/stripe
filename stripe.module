@@ -47,9 +47,9 @@ function stripe_menu() {
     'file' => 'system.admin.inc',
     'file path' => drupal_get_path('module', 'system'),
   );
-  $items['admin/config/stripe/keys'] = array(
-    'title' => 'API Keys',
-    'description' => 'Enter API Keys and set which one should be active.',
+  $items['admin/config/stripe/settings'] = array(
+    'title' => 'Stripe Settings',
+    'description' => 'API keys and other general Stripe settings.',
     'page callback' => 'drupal_get_form',
     'page arguments' => array('stripe_admin_keys'),
     'access arguments' => array('administer stripe'),
@@ -68,6 +68,7 @@ function stripe_menu() {
     'description' => 'Handler for incoming Stripe Webhook requests.',
     'page callback' => 'stripe_webhooks_callback',
     'access callback' => 'user_is_anonymous',
+    'file' => 'stripe.pages.inc',
   );
 
   return $items;
