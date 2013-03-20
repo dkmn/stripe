@@ -67,7 +67,8 @@ function stripe_menu() {
     'title' => 'Stripe Webhooks',
     'description' => 'Handler for incoming Stripe Webhook requests.',
     'page callback' => 'stripe_webhooks_callback',
-    'access callback' => 'user_is_anonymous',
+    'delivery callback' => 'stripe_webhook_response_output',
+    'access callback' => TRUE,
     'file' => 'stripe.pages.inc',
   );
 
@@ -297,4 +298,14 @@ function stripe_get_publishable_key() {
   $pub_key_name = 'stripe_' . $status . '_publishable';
   $pub_key = variable_get($pub_key_name, '');
   return $pub_key;
+}
+
+/**
+ * Returns data in plain text.
+ */
+function stripe_webhook_response_output($var = NULL) {
+  drupal_add_http_header('Content-Type', 'text/plain');
+  if (isset($var)) {
+    print $var;
+  }
 }
