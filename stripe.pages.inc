@@ -23,7 +23,7 @@ function stripe_webhooks_callback() {
       return 'OK';
     }
   }
-  // Something went wrong if we got here so return 404 and Stripe will send it again.
-  // This also serves as security for unauthorized access to this endpoint.
-  drupal_not_found();
+  // Something went wrong if we got here so return 404. If it is in fact
+  // coming from Stripe, they will attempt to resend it for 3 days.
+  header('HTTP/1.0 404 Not Found');
 }
