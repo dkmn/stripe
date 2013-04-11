@@ -29,22 +29,21 @@ function stripe_admin_test() {
 }
 
 function stripe_admin_test_validate($form, &$form_state) {
-  stripe_initialize();
   $charge = NULL;
-
-  try {
-    $charge = Stripe_Charge::create(array(
-      "amount" => $form_state['values']['amount'], // amount in cents, again
-      "currency" => "usd",
-      "card" => $form_state['values']['stripe_token'],
-      "description" => "Test Charge from " . variable_get('site_name', 'My Drupal Site'))
-    );
+  if (($library = libraries_load('stripe')) && !empty($library['loaded'])) {
+    try {
+      $charge = Stripe_Charge::create(array(
+        "amount" => $form_state['values']['amount'], // amount in cents, again
+        "currency" => "usd",
+        "card" => $form_state['values']['stripe_token'],
+        "description" => "Test Charge from " . variable_get('site_name', 'My Drupal Site'))
+      );
+    }
+    catch (Exception $e) {
+      form_set_error('', $e->getMessage());
+      return;
+    }
   }
-  catch (Exception $e) {
-    form_set_error('', $e->getMessage());
-    return;
-  }
-
   $form_state['storage']['charge'] = $charge;
 }
 
