@@ -1,0 +1,54 @@
+<?php
+/**
+ * @file
+ * Install, update and uninstall functions for the Stripe Payment module.
+ */
+
+/**
+ * Implements hook_schema().
+ */
+function stripe_payment_schema() {
+  $schema['stripe_payment_keys'] = array(
+    'description' => 'Stripe keys for Payment Methods not using the site-wide keys sets.',
+    'fields' => array(
+      'pmid' => array(
+        'description' => 'The {payment_method}.pmid this line item belongs to.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'secret' => array(
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+      ),
+      'publishable' => array(
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+      ),
+    ),
+    'primary key' => array('pmid'),
+  );
+  $schema['stripe_payment_charge'] = array(
+    'description' => 'Stripe Charges for Payments.',
+    'fields' => array(
+      'pid' => array(
+        'description' => 'The {payment}.pid this line item belongs to.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'charge_id' => array(
+        'description' => 'ID of the Stripe Charge for the payment.',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+      ),
+    ),
+    'primary key' => array('pid'),
+  );
+  return $schema;
+}

@@ -407,3 +407,31 @@ function stripe_libraries_postload_callback($library, $version = NULL, $variant 
     empty($secret_key) ? NULL : Stripe::setApiKey($secret_key);
   }
 }
+
+/**
+ * Get the stripe key(s).
+ *
+ * @param string $type
+ *   The type of the key to retrieve, either 'secret' or 'publishable'
+ *   (optional).
+ * @param string $set
+ *   The keys set to use, either 'test' or 'live'. Defaults to the value of the
+ *   'stripe_key_status' variable.
+ *
+ * @return array|string
+ *   If $type is NULL, an array containing both the secret and publishable keys.
+ *   Otherwise, the request keys.
+ */
+function stripe_get_key($type = NULL, $set = NULL) {
+  $keys = drupal_static(__FUNCTION__, array());
+  if ($set === NULL) {
+    $set = variable_get('stripe_key_status', 'test');
+  }
+  if (empty($keys[$set])) {
+    $keys[$set] = array(
+      'secret' => variable_get("stripe_{$set}_secret", ''),
+      'publishable' => variable_get("stripe_{$set}_publishable", ''),
+    );
+  }
+  return ($type === NULL) ? $keys[$set] : (isset($keys[$set][$type]) ? $keys[$set][$type] : NULL);
+}

@@ -1,0 +1,9 @@
+name = Stripe Payment method
+description = Integration of the Stripe payment gateway into the Payment Method.
+package = Stripe
+core = 7.x
+
+dependencies[] = payment
+dependencies[] = stripe
+
+files[] = includes/StripePaymentMethodController.inc
