@@ -7,10 +7,6 @@
 
 function stripe_admin_test() {
   $form = stripe_form_default_items();
-  $form['card_number']['#description'] = t('Use 4242424242424242 for testing');
-  $form['card_cvc']['#description'] = t('Use 123 for testing');
-  $form['card_expiry_month']['#default_value'] = '10';
-  $form['card_expiry_year']['#default_value'] = '2020';
   $form['amount'] = array(
     '#type' => 'textfield',
     '#title' => t('Amount:'),

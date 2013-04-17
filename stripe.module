@@ -94,6 +94,13 @@ function stripe_element_info() {
 /**
  * Process callback for this module elements.
  *
+ * TODO: Attach JS through a library defined via hook_library() implementation.
+ * TODO: Support form WITHOUT Stripe.js.
+ *       This would require an configuration variable to be set to TRUE. This
+ *       will have serious security implications. No UI should be provided to
+ *       enable this, requiring either a clear and informed user action or usage
+ *       of third party code.
+ *
  * @param array $element
  *   The processed element.
  * @param array $form_state
@@ -179,7 +186,7 @@ function stripe_element_process($element, $form_state, $complete_form) {
   if ($element['#cvc']) {
     $element['cvc'] = array(
       '#type' => 'textfield',
-      '#title' => t('CVC'),
+      '#title' => t('Card code'),
       '#size' => 4,
       '#attributes' => array(
         'autocomplete' => 'off',
@@ -285,6 +292,8 @@ function stripe_element_process($element, $form_state, $complete_form) {
  *
  * TODO: Remove this function, consumer should create their own form array with
  * a array('#type' => 'stripe_payment') element.
+ *
+ * @deprecated Use the 'stripe_payment' element type.
  */
 function stripe_form_default_items() {
   $form['stripe'] = array(
