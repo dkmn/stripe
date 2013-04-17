@@ -24,7 +24,7 @@ function stripe_payment_method_configuration_form_elements_validate(array $form,
  * Implements PaymentMethodController::payment_configuration_form_elements_callback.
  */
 function stripe_payment_configuration_form_elements(array $form, array &$form_state) {
-  return $form_state['payment_method']->controller
+  return $form_state['payment']->method->controller
     ->payment_configuration_form_elements($form, $form_state);
 }
 
@@ -32,7 +32,7 @@ function stripe_payment_configuration_form_elements(array $form, array &$form_st
  * Implements validation for PaymentMethodController::payment_configuration_form_elements_callback.
  */
 function stripe_payment_configuration_form_elements_validate(array $form, array &$form_state) {
-  return $form_state['payment_method']->controller
+  return $form_state['payment']->method->controller
     ->payment_configuration_form_elements_validate($form, $form_state);
 }
 
@@ -66,6 +66,9 @@ class StripePaymentMethodController extends PaymentMethodController {
    * Public constructor.
    */
   public function __construct() {
+    if (!($library = libraries_load('stripe')) || empty($library['loaded'])) {
+      throw new Exception('Cannot load Stripe PHP Library.');
+    }
     $this->currencies = array_fill_keys(array('CAD', 'USD'), array('minimum' => 0.5));
     $this->title = t('Stripe Payment');
   }
@@ -90,18 +93,18 @@ class StripePaymentMethodController extends PaymentMethodController {
    * @throws PaymentValidationException
    */
   public function validate(Payment $payment, PaymentMethod $payment_method, $strict) {
-    // Update supported currencies using Stripe Account.
-    $all_currencies = $this->currencies;
-    if ($stripe_account = $this->retrieveAccount($payment_method)) {
-      $payment_method->controller->currencies = array_intersect_key($this->currencies, $stripe_account->currencies_supported);
-    }
     parent::validate($payment, $payment_method, $strict);
-    // Restore supported currencies.
-    $payment_method->controller->currencies = $all_currencies;
+    // Confirm the payment's currency is supported (for the Stripe account).
+    if ($stripe_account = $this->retrieveAccount($payment_method)) {
+      if (!in_array($payment->currency_code, $stripe_account->currencies_supported)) {
+        throw new PaymentValidationUnsupportedCurrencyException(t('The currency is not supported by this payment method.'));
+      }
+    }
+    // Confirm we have a token, a customer or a card information.
     if ($strict && !isset($payment->method_data['token'])
       && !isset($payment->method_data['card'])
       && !isset($payment->method_data['customer'])) {
-      throw new StripePaymentValidationException("A Stripe payment must have one of 'token', 'card' or 'customer' payment method data.");
+      throw new StripePaymentValidationException("A Stripe payment must have card or a customer to charge.");
     }
   }
 
@@ -128,12 +131,15 @@ class StripePaymentMethodController extends PaymentMethodController {
           'currency' => $payment->currency_code,
           'description' => t($payment->description, $payment->description_arguments),
         );
+        // Charge a token...
         if (isset($payment->method_data['token'])) {
           $data['card'] = $payment->method_data['token'];
         }
+        // ... or a card ...
         elseif (isset($payment->method_data['card'])) {
           $data['card'] = $payment->method_data['card'];
         }
+        // ... or a customer.
         elseif (isset($payment->method_data['customer'])) {
           $data['customer'] = $payment->method_data['customer'];
         }
@@ -143,7 +149,7 @@ class StripePaymentMethodController extends PaymentMethodController {
         $charge = Stripe_Charge::create($data, $api_key);
         watchdog(
           'stripe_payment',
-          'Stripe Charge [id=@charge_id] for Payment [pid=@pid] successful.',
+          'Stripe Charge [id=@charge_id] created for Payment [pid=@pid].',
           array(
             '@charge_id' => $payment->method_data['charge_id'],
             '@pid' => $payment->pid,
@@ -154,7 +160,7 @@ class StripePaymentMethodController extends PaymentMethodController {
         $payment->method_data['charge_id'] = $charge->id;
       }
       else {
-        // The payment is already linked to a Stripe Charge. This should not
+        // The Payment is already linked to a Stripe Charge. This should not
         // happen. Let's update the payment status and pretend everything went
         // fine.
         watchdog('stripe_payment', 'Executing a payment already linked to a Stripe Charge [id=@charge_id].', array(
@@ -251,7 +257,7 @@ class StripePaymentMethodController extends PaymentMethodController {
    *   The Stripe Account object for the given payment method. Or NULL if the
    *   account could not be retrieved (errors are logged to Drupal's watchdog).
    */
-  public static function retrieveAccount(PaymentMethod $payment_method) {
+  public function retrieveAccount(PaymentMethod $payment_method) {
     if ($payment_method->controller->name === 'StripePaymentMethodController') {
       $accounts[] = &drupal_static(__METHOD__, array());
       if (!isset($accounts[$payment_method->pmid])) {
@@ -310,7 +316,7 @@ class StripePaymentMethodController extends PaymentMethodController {
    *   The Stripe Charge object for the given Payment. Or NULL if no Stripe
    *   Charge could be retrieved (errors are logged to Drupal's watchdog).
    */
-  public static function retrieveCharge(Payment $payment) {
+  public function retrieveCharge(Payment $payment) {
     if ($payment->method->controller->name === 'StripePaymentMethodController' && isset($payment->method_data['charge_id'])) {
       $cid = "{$payment->method->pmid}:charge:{$payment->method_data['charge_id']}";
       $cache = cache_get($cid, 'stripe_payment');
@@ -405,6 +411,8 @@ class StripePaymentMethodController extends PaymentMethodController {
    *       The card information for the method's Payment will then be be stored
    *       in the Payment::method_data. Provide clear and visible warning with
    *       information regarding the security risk and PCI compliance.
+   * TODO: Add option to collect card holder's name.
+   * TODO: Add option to collect card holder's address.
    *
    * @return array
    *   The forms elements to configure a payment method.
@@ -496,19 +504,27 @@ class StripePaymentMethodController extends PaymentMethodController {
   /**
    * Builder callback for the payment configuration form elements.
    *
+   * TODO: Support form WITHOUT Stripe.js.
+   *      (see TODO for payment_method_configuration_form_elements)
+   * TODO: Support option to collect card holder's name.
+   * TODO: Support option to collect card holder's address.
+   *
    * @param array $element
    *   The parent element.
    * @param array $form_state
    *   The form states.
    *
-   * TODO: Support form WITHOUT Stripe.js.
-   *      (see TODO for payment_method_configuration_form_elements)
-   *
    * @return array
    *   The forms elements to configure a payment.
    */
   public function payment_configuration_form_elements(array $element, array &$form_state) {
-    return array();
+    $payment = $form_state['payment'];
+    $publishable_key = !empty($payment->method->controller_data['keys']['mode']) ? $payment->method->controller_data['keys']['publishable'] : stripe_get_key('publishable');
+    $element = array(
+      '#type' => 'stripe_payment',
+      '#publishable_key' => $publishable_key,
+    );
+    return array($element);
   }
 
   /**

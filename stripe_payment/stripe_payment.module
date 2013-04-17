@@ -197,7 +197,12 @@ function stripe_payment_payment_status_info() {
  * Implements hook_payment_method_controller_info().
  */
 function stripe_payment_payment_method_controller_info() {
-  return array('StripePaymentMethodController');
+  $controller = array();
+  if (($library = libraries_detect('stripe')) && !empty($library['installed'])) {
+    // The library is installed. Awesome!
+    $controller[] = 'StripePaymentMethodController';
+  }
+  return $controller;
 }
 
 /**
