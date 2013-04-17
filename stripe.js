@@ -1,5 +1,4 @@
 (function ($) {
-
   if (typeof Drupal.ajax !== 'undefined') {
     // Keep a reference to the original Drupal.ajax.prototype.beforeSerialize.
     var originalBeforeSerialize = Drupal.ajax.prototype.beforeSerialize;
@@ -20,7 +19,7 @@
         $(':input[data-stripe]:enabled', this.form)[propFn]('disabled', true)
           .closest('.form-item').addClass('form-disabled');
         // Set publishable key *stored in the form element).
-        Stripe.setPublishableKey($.data(this.form, 'stripeKey'));
+        Stripe.setPublishableKey(this.form.data('stripeKey'));
         // Create the token.
         Stripe.createToken(Drupal.behaviors.stripe.extractTokenData(this.form), $.proxy(Drupal.ajax.prototype.beforeSerializeStripeResponseHandler, this));
         // Cancel this submit, the form will be re-submitted in token creation
@@ -39,10 +38,9 @@
      * @see Drupal.ajax.prototype.beforeSerialize().
      */
     Drupal.ajax.prototype.beforeSerializeStripeResponseHandler = function(status, response) {
-      var ajax = this;
-      Drupal.behaviors.stripe.processStripeResponse(status, response, ajax.form, function() {
-      	ajax.form.ajaxSubmit(ajax.options);
-      });
+      Drupal.behaviors.stripe.processStripeResponse(status, response, this.form);
+      // Always re-submit the form through AJAX, even if token can not be created.
+      this.form.ajaxSubmit(this.options);
     }
   }
 
@@ -112,7 +110,7 @@
      *   The triggering event object.
      */
     stripeSubmitHandler: function (event) {
-      // Prevent the form from submitting with the default action.
+      // Prevent the form submitting with the default action.
       event.preventDefault();
 
       // Clear out all errors.
@@ -141,10 +139,21 @@
      *   The response object.
      */
     stripeResponseHandler: function(status, response) {
-      Drupal.behaviors.stripe.processStripeResponse(status, response, this, $.proxy(this.submit, this));
+      Drupal.behaviors.stripe.processStripeResponse(status, response, this);
+      if (response.error) {
+        // Re-enable Stripe input elements (and remove disabled class on wrapper).
+        var propFn = (typeof $.fn.prop === 'function') ? 'prop' : 'attr';
+        $(':input[data-stripe]:disabled', form)[propFn]('disabled', false)
+          .closest('.form-item').removeClass('form-disabled');
+      }
+      else {
+        this.submit();
+      }
     },
     /**
      * Process a Stripe (create token) response for a given form.
+     *  - Prepend error message to the form.
+     *  - Set hidden token input value. 
      *
      * @param status
      *   The resposne status code, as described in Stripe API doc.
@@ -152,26 +161,20 @@
      *   The response object.
      * @param form
      *   The form used to create the token.
-     * @param submitCallback
-    *    The function to call to submit the form (if the response contains a valid token).
      */
-    processStripeResponse: function(status, response, form, submitCallback) {
+    processStripeResponse: function(status, response, form) {
       if (response.error) {
         // Prepend error message to the form, wrapped in a error div.
         $('<div class="stripe-errors messages error"></div>').text(Drupal.t(response.error.message)).prependTo(form);
         // Add error class to the corresponding form element.
         $(':input[data-stripe=' + response.error.param + ']', form).addClass('error');
-        // Re-enable Stripe input elements (and remove disabled class on wrapper).
-        var propFn = (typeof $.fn.prop === 'function') ? 'prop' : 'attr';
-        $(':input[data-stripe]:disabled', form)[propFn]('disabled', false)
-          .closest('.form-item').removeClass('form-disabled');
+      	// Insert empty value in token.
+      	$(':input[data-stripe=token]', form).val(null);
       } else {
         // Use newer jQuery's .prop() when available.
         var propFn = (typeof $.fn.prop === 'function') ? 'prop' : 'attr';
         // Insert the token into the form so it gets submitted to the server.
         $(':input[data-stripe=token]', form).val(response.id);
-        // Re-submit the form using AJAX.
-        submitCallback();
       }
     },
     /**
