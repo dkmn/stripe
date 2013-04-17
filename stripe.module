@@ -379,7 +379,7 @@ function stripe_libraries_info() {
       'pattern' => '/([0-9a-zA-Z\.-]+)/',
       'lines' => 1,
     ),
-    'files' => array('php' => 'lib/Stripe.php'),
+    'files' => array('php' => array('lib/Stripe.php')),
     'callbacks' => array('post-load' => array('stripe_libraries_postload_callback')),
   );
   return $libraries;
