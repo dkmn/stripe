@@ -86,7 +86,7 @@ function stripe_element_info() {
       '#cardholder_name' => TRUE,
       '#address' => FALSE,
       '#cvc' => TRUE,
-      '#publishable_key' => stripe_get_key('publishable'),
+      '#publishable_key' => NULL,
     ),
   );
 }
@@ -105,7 +105,6 @@ function stripe_element_process($element, $form_state, $complete_form) {
   $element['#type'] = 'fieldset';
   $element += element_info('fieldset');
   $element['#tree'] = TRUE;
-
   $element['token'] = array(
     '#type' => 'hidden',
     '#element_validate' => array('stripe_token_element_validate'),
@@ -277,7 +276,7 @@ function stripe_element_process($element, $form_state, $complete_form) {
   // Attach our javascript.
   $element['#attached']['js'][] = drupal_get_path('module', 'stripe') . '/stripe.js';
   // Attach the javascript settings.
-  $element['#attributes']['data-stripe-key'] = $element['#publishable_key'];
+  $element['#attributes']['data-stripe-key'] = !empty($element['#publishable_key']) ? $element['#publishable_key'] : stripe_get_key('publishable');
   return $element;
 }
 
