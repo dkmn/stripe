@@ -218,7 +218,7 @@ function stripe_payment_payment_method_load($payment_methods) {
     $pmids = array_map(function(PaymentMethod $payment_method) {
       return $payment_method->pmid;
     }, $payment_methods);
-    // Load keys (all at once).
+    // Load keys (all payment methods at once).
     $keys = db_select('stripe_payment_keys', 'spk')
       ->fields('spk', array('pmid', 'secret', 'publishable'))
       ->condition('pmid', $pmids)
@@ -242,16 +242,7 @@ function stripe_payment_payment_method_load($payment_methods) {
  */
 function stripe_payment_payment_method_insert(PaymentMethod $payment_method) {
   if ($payment_method->controller->name === 'StripePaymentMethodController') {
-    $payment_method->controller_data += $payment_method->controller->controller_data_defaults;
-    if ($payment_method->controller_data['keys']['mode']) {
-      // Store Payment Method's keys.
-      $record = array(
-        'pmid' => $payment_method->pmid,
-        'secret' => $payment_method->controller_data['keys']['secret'],
-        'publishable' => $payment_method->controller_data['keys']['publishable'],
-      );
-      drupal_write_record('stripe_payment_keys', $record);
-    }
+    stripe_payment_payment_method_update($payment_method);
   }
 }
 
@@ -262,13 +253,14 @@ function stripe_payment_payment_method_update(PaymentMethod $payment_method) {
   if ($payment_method->controller->name === 'StripePaymentMethodController') {
     $payment_method->controller_data += $payment_method->controller->controller_data_defaults;
     if ($payment_method->controller_data['keys']['mode']) {
-      // Update stored Payment Method's keys.
-      $record = array(
-        'pmid' => $payment_method->pmid,
-        'secret' => $payment_method->controller_data['keys']['secret'],
-        'publishable' => $payment_method->controller_data['keys']['publishable'],
-      );
-      drupal_write_record('stripe_payment_keys', $record, 'pmid');
+      // Insert/Update stored Payment Method's keys.
+      db_merge('stripe_payment_keys')
+        ->key(array('pmid' => $payment_method->pmid))
+        ->fields(array(
+            'secret' => $payment_method->controller_data['keys']['secret'],
+            'publishable' => $payment_method->controller_data['keys']['publishable'],
+          ))
+        ->execute();
     }
     else {
       // Delete stored keys (if any).
@@ -278,7 +270,7 @@ function stripe_payment_payment_method_update(PaymentMethod $payment_method) {
     }
     // Clear cached data related to this Payment Method.
     drupal_static_reset('StripePaymentMethodController::retrieveAccount');
-    cache_clear_all($payment_method->pmid, 'stripe_payment', TRUE);
+    cache_clear_all("stripe_payment_method:$payment_method->pmid:", 'stripe_payment', TRUE);
   }
 }
 
@@ -307,7 +299,7 @@ function stripe_payment_payment_load($payments) {
     $pids = array_map(function(Payment $payment) {
       return $payment->pid;
     }, $payments);
-    // Load charges data (all at once).
+    // Load stored data (all payments at once).
     $method_data = db_select('stripe_payment_data', 'spd')
       ->fields('spd', array('pid', 'type', 'id'))
       ->condition('pid', $pids)
@@ -315,15 +307,7 @@ function stripe_payment_payment_load($payments) {
       ->fetchAllAssoc('pid', PDO::FETCH_ASSOC);
     foreach ($payments as $payment) {
       if (isset($method_data[$payment->pid])) {
-        switch ($method_data[$payment->pid]['type']) {
-          case 'charge':
-            $payment->method_data['charge_id'] = $method_data[$payment->pid]['id'];
-            break;
-
-          case '':
-            $payment->method_data['token'] = $method_data[$payment->pid]['id'];
-            break;
-        }
+        $payment->method_data[$method_data[$payment->pid]['type']] = $method_data[$payment->pid]['id'];
       }
     }
   }
@@ -343,23 +327,18 @@ function stripe_payment_payment_insert(Payment $payment) {
  */
 function stripe_payment_payment_update(Payment $payment) {
   if ($payment->method->controller->name === 'StripePaymentMethodController') {
-    if (isset($payment->method_data['charge_id'])) {
-      $record = array(
-        'type' => 'charge',
-        'id' => $payment->method_data['charge_id'],
-      );
-    }
-    elseif (isset($payment->method_data['token'])) {
-      $record = array(
-        'type' => 'token',
-        'id' => $payment->method_data['token'],
-      );
-    }
-    else {
-      $record = array();
+    $record = array();
+    foreach (array('charge', 'customer', 'token') as $type) {
+      if (isset($payment->method_data[$type])) {
+        $record = array(
+          'type' => $type,
+          'id' => $payment->method_data[$type],
+        );
+        break;
+      }
     }
     if ($record) {
-      // Store charge data.
+      // Insert/Update stored data.
       db_merge('stripe_payment_data')
         ->key(array('pid' => $payment->pid))
         ->fields($record)
@@ -379,7 +358,7 @@ function stripe_payment_payment_update(Payment $payment) {
  */
 function stripe_payment_payment_delete(Payment $payment) {
   if ($payment->method->controller->name == 'StripePaymentMethodController') {
-    // Delete stored charge data (if any).
+    // Delete stored data (if any).
     db_delete('stripe_payment_data')
       ->condition('pid', $payment->pid)
       ->execute();

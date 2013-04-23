@@ -120,10 +120,6 @@ class StripePaymentMethodController extends PaymentMethodController {
   /**
    * Execute a payment.
    *
-   * Note that payments may be executed even if their owner is not logged into
-   * the site. This means that if you need to do access control in your
-   * execute() method, you cannot use global $user.
-   *
    * @param Payment $payment
    *   The executed payment.
    *
@@ -133,7 +129,7 @@ class StripePaymentMethodController extends PaymentMethodController {
   public function execute(Payment $payment) {
     $api_key = !empty($payment->method->controller_data['keys']['mode']) ? $payment->method->controller_data['keys']['secret'] : stripe_get_key('secret');
     try {
-      if (empty($payment->method_data['charge_id'])) {
+      if (empty($payment->method_data['charge'])) {
         // Create the Stripe Charge for the payment.
         $data = array(
           'amount' => $payment->totalAmount(TRUE),
@@ -144,83 +140,103 @@ class StripePaymentMethodController extends PaymentMethodController {
         if (isset($payment->method_data['token'])) {
           $data['card'] = $payment->method_data['token'];
         }
-        // ... or a card ...
-        elseif (isset($payment->method_data['card'])) {
-          $data['card'] = $payment->method_data['card'];
-        }
-        // ... or a customer.
+        // ... or a customer ...
         elseif (isset($payment->method_data['customer'])) {
           $data['customer'] = $payment->method_data['customer'];
         }
+        // ... or a card.
+        elseif (isset($payment->method_data['card'])) {
+          $data['card'] = $payment->method_data['card'];
+        }
+        // Support execution of Payment with a non-captured charge. Currently
+        // not provided in the UI. Probably not usable without more work.
         if (isset($payment->method_data['capture'])) {
           $data['capture'] = $payment->method_data['capture'];
+        }
+        // Support for application fee. Currently not provided in the UI.
+        // Probably not usable without more work.
+        if (isset($payment->method_data['application_fee'])) {
+          $data['capture'] = $payment->method_data['application_fee'];
         }
         $charge = Stripe_Charge::create($data, $api_key);
         watchdog(
           'stripe_payment',
           'Stripe Charge [id=@charge_id] created for Payment [pid=@pid].',
           array(
-            '@charge_id' => $payment->method_data['charge_id'],
+            '@charge_id' => $payment->method_data['charge'],
             '@pid' => $payment->pid,
           ),
           WATCHDOG_DEBUG, url("payment/{$payment->pid}")
         );
         $payment->setStatus($this->statusFromCharge($charge));
-        $payment->method_data['charge_id'] = $charge->id;
+        $payment->method_data['charge'] = $charge->id;
       }
       else {
         // The Payment is already linked to a Stripe Charge. This should not
         // happen. Let's update the payment status and pretend everything went
         // fine.
         watchdog('stripe_payment', 'Executing a payment already linked to a Stripe Charge [id=@charge_id].', array(
-          '@charge_id' => $payment->method_data['charge_id'],
+          '@charge_id' => $payment->method_data['charge'],
         ), WATCHDOG_WARNING, url("payment/{$payment->pid}"));
-        $charge = Stripe_Charge::retrieve($payment->method_data['charge_id'], $api_key);
+        // Do not use the StripePaymentMethodController::retrieveCharge() method
+        // since we want to catch Stripe exception.
+        $charge = Stripe_Charge::retrieve($payment->method_data['charge'], $api_key);
         $payment->setStatus($this->statusFromCharge($charge));
       }
       // If we get to this LoC, then the payment execution has succeeded.
       return TRUE;
     }
     catch (Stripe_CardError $e) {
-      $payment->setStatus($this->statusFronCardErrorCode($e->getCode()));
+      $payment->setStatus($this->statusFromCardErrorCode($e->getCode()));
       // Display human-readable message.
       if ($e->getMessage()) {
         drupal_set_message($e->getMessage(), 'error');
       }
+      // Log error.
       watchdog(
         'stripe_payment',
-        'Stripe Card Error: @message.',
-        array('@message' => $e->getMessage()),
-        WATCHDOG_DEBUG
+        'Stripe Card Error for Payment [pid=@pid]: @message.',
+        array(
+          '@pid' => $payment->pid,
+          '@message' => $e->getMessage(),
+        ),
+        WATCHDOG_ERROR,
+        url("payment/{$payment->pid}")
       );
     }
     catch (Stripe_InvalidRequestError $e) {
       $payment->setStatus(new PaymentStatusItem(STRIPE_PAYMENT_STATUS_INVALID_REQUEST));
       watchdog(
         'stripe_payment',
-        'Invalid Stripe Request: @message.<br/>!json_body',
+        'Invalid Stripe Request for Payment [pid=@pid]: @message.<br/>!json_body',
         array(
+          '@pid' => $payment->pid,
           '@message' => $e->getMessage(),
           '!json_body' => '<?php ' . highlight_string(var_export($e->getJsonBody(), TRUE), TRUE),
         ),
-        WATCHDOG_ERROR
+        WATCHDOG_ERROR,
+        url("payment/{$payment->pid}")
       );
     }
     catch (Stripe_AuthenticationError $e) {
       $payment->setStatus(new PaymentStatusItem(STRIPE_PAYMENT_STATUS_AUTHENTICATION_ERROR));
       if (payment_method_access('update', $payment->method)) {
         drupal_set_message(
-          t("Stripe Authentication Error: @message. Please review <a href='@url'>configuration</a>.",
+          t("Stripe Authentication Error for Payment [pid=@pid]: @message.",
             array(
+              '@pid' => $payment->pid,
               '@message' => $e->getMessage(),
-              '@url' => url("admin/config/services/payment/method/{$payment->method->pmid}"),
             )
-          ), 'error');
+          ) . t("Please review <a href='@url'>configuration</a>.", array('@url' => url("admin/config/services/payment/method/{$payment->method->pmid}"))),
+        'error');
       }
       watchdog(
         'stripe_payment',
-        'Stripe Authentication Error: @message.',
-        array('@message' => $e->getMessage()),
+        "Stripe Authentication Error for Payment [pid=@pid]: @message.",
+        array(
+          '@pid' => $payment->pid,
+          '@message' => $e->getMessage(),
+        ),
         WATCHDOG_ERROR,
         url("admin/config/services/payment/method/{$payment->method->pmid}")
       );
@@ -229,24 +245,28 @@ class StripePaymentMethodController extends PaymentMethodController {
       $payment->setStatus(new PaymentStatusItem(STRIPE_PAYMENT_STATUS_API_ERROR));
       watchdog(
         'stripe_payment',
-        'Stripe API Error: @message.<br/>!json_body',
+        'Stripe API Error for Payment [pid=@pid]: @message.<br/>!json_body',
         array(
+          '@pid' => $payment->pid,
           '@message' => $e->getMessage(),
           '!json_body' => '<?php ' . highlight_string(var_export($e->getJsonBody(), TRUE), TRUE),
         ),
-        WATCHDOG_ERROR
+        WATCHDOG_ERROR,
+        url("payment/{$payment->pid}")
       );
     }
     catch (Exception $e) {
       $payment->setStatus(new PaymentStatusItem(STRIPE_PAYMENT_STATUS_UNKNOWN_ERROR));
       watchdog(
         'stripe_payment',
-        'Stripe unknown Error: @message.<br/>!json_body',
+        'Unknown Exception for Payment [pid=@pid]: @message.<br/><pre>!trace</pre>',
         array(
+          '@pid' => $payment->pid,
           '@message' => $e->getMessage(),
-          '!json_body' => '<?php ' . highlight_string(var_export($e->getJsonBody(), TRUE), TRUE),
+          '!trace' => $e->getTraceAsString(),
         ),
-        WATCHDOG_ERROR
+        WATCHDOG_ERROR,
+        url("payment/{$payment->pid}")
       );
     }
     // The only way to reach this LoC is to exit the try block with an
@@ -259,6 +279,9 @@ class StripePaymentMethodController extends PaymentMethodController {
    *
    * This method handles Stripe errors and logs them to Drupal's watchdog.
    *
+   * Result for a given Payment Method is cached both statically and temporarily
+   * in Drupal's cache.
+   *
    * @param PaymentMethod $payment_method
    *   A Payment Method.
    *
@@ -270,8 +293,8 @@ class StripePaymentMethodController extends PaymentMethodController {
     if ($payment_method->controller->name === 'StripePaymentMethodController') {
       $accounts[] = &drupal_static(__METHOD__, array());
       if (!isset($accounts[$payment_method->pmid])) {
-        $cid = "{$payment_method->pmid}:account";
-        $cache = cache_get($cid, 'stripe_payment');
+        $cid = "stripe_payment:{$payment_method->pmid}:account";
+        $cache = cache_get($cid);
         if ($cache && !empty($cache->data)) {
           $accounts[$payment_method->pmid] = $cache->data;
         }
@@ -320,6 +343,9 @@ class StripePaymentMethodController extends PaymentMethodController {
    * the user as view access to the Payment object, errors are also displayed
    * as error message.
    *
+   * Result for a given Payment and its Payment Method is cached temporarily in
+   * Drupal's cache.
+   *
    * @param Payment $payment
    *   A Payment object.
    *
@@ -329,17 +355,17 @@ class StripePaymentMethodController extends PaymentMethodController {
    *   if the Payment does not use Stripe.
    */
   public function retrieveCharge(Payment $payment) {
-    if ($payment->method->controller->name === 'StripePaymentMethodController' && isset($payment->method_data['charge_id'])) {
-      $cid = "{$payment->method->pmid}:charge:{$payment->method_data['charge_id']}";
-      $cache = cache_get($cid, 'stripe_payment');
+    if ($payment->method->controller->name === 'StripePaymentMethodController' && isset($payment->method_data['charge'])) {
+      $cid = "stripe_payment:{$payment->method->pmid}:charge:{$payment->method_data['charge']}";
+      $cache = cache_get($cid);
       if ($cache && !empty($cache->data)) {
         return $cache->data;
       }
       else {
         $api_key = !empty($payment->method->controller_data['keys']['mode']) ? $payment->method->controller_data['keys']['secret'] : stripe_get_key('secret');
         try {
-          $charge = Stripe_Charge::retrieve($payment->method_data['charge_id'], $api_key);
-          cache_set($cid, $charge, 'strip_payment', CACHE_TEMPORARY);
+          $charge = Stripe_Charge::retrieve($payment->method_data['charge'], $api_key);
+          cache_set($cid, $charge, 'cache', CACHE_TEMPORARY);
           return $charge;
         }
         catch (Stripe_Error $e) {
@@ -423,16 +449,16 @@ class StripePaymentMethodController extends PaymentMethodController {
    * @return PaymentStatusItem
    *   The Payment status matching the error code.
    */
-  protected function statusFronCardErrorCode($code) {
+  protected function statusFromCardErrorCode($code) {
     if (empty($code)) {
-      return new PaymentStatusItem(PAYMENT_STATUS_FAILED);
+      return new PaymentStatusItem(STRIPE_PAYMENT_STATUS_UNKNOWN_ERROR);
     }
     $status = 'STRIPE_PAYMENT_STATUS_' . drupal_strtoupper($code);
     if (defined($status)) {
-      return new PaymentStatusItem($status);
+      return new PaymentStatusItem(constant($status));
     }
     else {
-      return new PaymentStatusItem(PAYMENT_STATUS_FAILED);
+      return new PaymentStatusItem(STRIPE_PAYMENT_STATUS_UNKNOWN_ERROR);
     }
   }
 
@@ -441,6 +467,8 @@ class StripePaymentMethodController extends PaymentMethodController {
    *
    * @param Stripe_Charge $charge
    *   A stripe charge object.
+   *
+   * TODO: Add support for refunded charge.
    *
    * @return PaymentStatusItem
    *   The Payment status matching the charge object.
@@ -469,7 +497,7 @@ class StripePaymentMethodController extends PaymentMethodController {
    *       The card information for the method's Payment will then be be stored
    *       in the Payment::method_data. Provide clear and visible warning with
    *       information regarding the security risk and PCI compliance.
-   * TODO: Add option to collect card holder's name.
+   * TODO: Add option to (not) collect card holder's name.
    * TODO: Add option to collect card holder's address.
    *
    * @return array
@@ -564,7 +592,7 @@ class StripePaymentMethodController extends PaymentMethodController {
    *
    * TODO: Support form WITHOUT Stripe.js.
    *      (see TODO for payment_method_configuration_form_elements)
-   * TODO: Support option to collect card holder's name.
+   * TODO: Support option to (not) collect card holder's name.
    * TODO: Support option to collect card holder's address.
    *
    * @param array $element
