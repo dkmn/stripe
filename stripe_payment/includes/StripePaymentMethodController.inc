@@ -74,6 +74,15 @@ class StripePaymentMethodController extends PaymentMethodController {
   }
 
   /**
+   * Wakeup.
+   */
+  public function __wakeup() {
+    if (!($library = libraries_load('stripe')) || empty($library['loaded'])) {
+      throw new Exception('Cannot load Stripe PHP Library.');
+    }
+  }
+
+  /**
    * Validate a payment against a payment method and this controller.
    *
    * Don't call directly. Use PaymentMethod::validate() instead.
@@ -307,14 +316,17 @@ class StripePaymentMethodController extends PaymentMethodController {
   /**
    * Retrieve the Stripe Charge object for a given Payment.
    *
-   * This method handles Stripe errors and logs them to Drupal's watchdog.
+   * This method handles Stripe errors and logs them to Drupal's watchdog. If
+   * the user as view access to the Payment object, errors are also displayed
+   * as error message.
    *
    * @param Payment $payment
    *   A Payment object.
    *
    * @return Stripe_Charge
    *   The Stripe Charge object for the given Payment. Or NULL if no Stripe
-   *   Charge could be retrieved (errors are logged to Drupal's watchdog).
+   *   Charge could be retrieved (errors are logged to Drupal's watchdog) or
+   *   if the Payment does not use Stripe.
    */
   public function retrieveCharge(Payment $payment) {
     if ($payment->method->controller->name === 'StripePaymentMethodController' && isset($payment->method_data['charge_id'])) {
@@ -357,6 +369,52 @@ class StripePaymentMethodController extends PaymentMethodController {
   }
 
   /**
+   * Retrieve the Stripe Token object for a given Payment.
+   *
+   * This method handles Stripe errors and logs them to Drupal's watchdog. If
+   * the user as view access to the Payment object, errors are also displayed
+   * as error message.
+   *
+   * @param Payment $payment
+   *   A Payment object.
+   *
+   * @return Stripe_Token
+   *   The Stripe Token object for the given Payment. Or NULL if no Stripe
+   *   Token could be retrieved (errors are logged to Drupal's watchdog) or if
+   *   the Payment does not use Stripe.
+   */
+  public function retrieveToken(Payment $payment) {
+    if ($payment->method->controller->name === 'StripePaymentMethodController' && $payment->method_data['token']) {
+      $api_key = !empty($payment->method->controller_data['keys']['mode']) ? $payment->method->controller_data['keys']['secret'] : stripe_get_key('secret');
+      try {
+        return Stripe_Token::retrieve($payment->method_data['token'], $api_key);
+      }
+      catch (Stripe_Error $e) {
+        if (payment_access('view', $payment)) {
+          drupal_set_message(
+            t('Unable to retrieve Stripe Token for <a href="@url">Payment</a>: @message.',
+              array(
+                '@url' => url("payment/{$payment->pid}"),
+                '@message' => $e->getMessage(),
+              )
+            ), 'error');
+        }
+        watchdog(
+          'stripe_payment',
+          'Unable to retrieve Stripe Token for <a href="@url">Payment</a>: @message.',
+          array(
+            '@url' => url("payment/{$payment->pid}"),
+            '@message' => $e->getMessage(),
+          ),
+          WATCHDOG_ERROR,
+          url("payment/{$payment->pid}")
+        );
+      }
+    }
+    return NULL;
+  }
+
+  /**
    * Map a card error code to a Payment status.
    *
    * @paran string $code
@@ -366,7 +424,7 @@ class StripePaymentMethodController extends PaymentMethodController {
    *   The Payment status matching the error code.
    */
   protected function statusFronCardErrorCode($code) {
-    if (epmty($code)) {
+    if (empty($code)) {
       return new PaymentStatusItem(PAYMENT_STATUS_FAILED);
     }
     $status = 'STRIPE_PAYMENT_STATUS_' . drupal_strtoupper($code);
@@ -524,7 +582,7 @@ class StripePaymentMethodController extends PaymentMethodController {
       '#type' => 'stripe_payment',
       '#publishable_key' => $publishable_key,
     );
-    return array($element);
+    return array('stripe' => $element);
   }
 
   /**
@@ -537,8 +595,7 @@ class StripePaymentMethodController extends PaymentMethodController {
    */
   public function payment_configuration_form_elements_validate(array $element, array &$form_state) {
     $values = drupal_array_get_nested_value($form_state['values'], $element['#parents']);
-    $payment = $form_state['payment'];
-    $payment->method_data['token'] = $values['stripe_token'];
-    return array();
+    $payment = &$form_state['payment'];
+    $payment->method_data['token'] = $values['stripe']['token'];
   }
 }

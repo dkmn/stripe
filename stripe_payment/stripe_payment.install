@@ -31,8 +31,8 @@ function stripe_payment_schema() {
     ),
     'primary key' => array('pmid'),
   );
-  $schema['stripe_payment_charge'] = array(
-    'description' => 'Stripe Charges for Payments.',
+  $schema['stripe_payment_data'] = array(
+    'description' => 'Stripe data for Payments.',
     'fields' => array(
       'pid' => array(
         'description' => 'The {payment}.pid this line item belongs to.',
@@ -41,8 +41,14 @@ function stripe_payment_schema() {
         'not null' => TRUE,
         'default' => 0,
       ),
-      'charge_id' => array(
-        'description' => 'ID of the Stripe Charge for the payment.',
+      'type' => array(
+        'description' => "Type of stored ID, either 'charge', 'token'.",
+        'type' => 'varchar',
+        'length' => '6',
+        'not null' => TRUE,
+      ),
+      'id' => array(
+        'description' => 'ID of the Stripe Token/Charge for the payment.',
         'type' => 'varchar',
         'length' => 255,
         'not null' => TRUE,
