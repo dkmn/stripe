@@ -81,7 +81,6 @@ function stripe_menu() {
 function stripe_element_info() {
   return array(
     'stripe_payment' => array(
-      '#input' => TRUE,
       '#process' => array('stripe_element_process'),
       '#cardholder_name' => TRUE,
       '#address' => FALSE,
@@ -282,7 +281,7 @@ function stripe_element_process($element, $form_state, $complete_form) {
   $element['#attached']['js']['https://js.stripe.com/v1/'] = array('type' => 'external');
   // Attach our javascript.
   $element['#attached']['js'][] = drupal_get_path('module', 'stripe') . '/stripe.js';
-  // Attach the javascript settings.
+  // Attach the publishable key to the form element.
   $element['#attributes']['data-stripe-key'] = !empty($element['#publishable_key']) ? $element['#publishable_key'] : stripe_get_key('publishable');
   return $element;
 }

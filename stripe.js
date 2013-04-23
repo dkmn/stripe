@@ -69,19 +69,29 @@
         // Get the form containing the Stripe fieldset.
         $(this).closest('form')
           // Enable Stripe input elements (and remove matching classe).
-          .find(':input[data-stripe]:disabled', this)
+          .find(':input[data-stripe]', this)
             [propFn]('disabled', false)
             .closest('.form-item')
             	.removeClass('form-disabled')
             .end()
           .end()
-          // Only do the following once for each stripe element.
-          .once(id)
+          // Only do the following once for each form.
+          .once('stripe')
           // Register submit handler, with key as event data.
           .submit(Drupal.behaviors.stripe.stripeSubmitHandler)
           // Store the key in the form element, to be used in our submit hanlders.
           .data('stripeKey', key)       
       });
+    },
+    detach: function(context, settings, trigger) {
+      if (trigger === 'unload') {
+        // Remove error message for unloaded Stripe inputs.
+        $(':input[data-stripe].error', context).each(function(){
+        	if (this.id) {
+        	  $('#' + this.id + '-error').remove();
+        	}
+        });
+      }
     },
     /**
      * Extract token creation data from a form.
@@ -143,7 +153,7 @@
       if (response.error) {
         // Re-enable Stripe input elements (and remove disabled class on wrapper).
         var propFn = (typeof $.fn.prop === 'function') ? 'prop' : 'attr';
-        $(':input[data-stripe]:disabled', form)[propFn]('disabled', false)
+        $(':input[data-stripe]:disabled', this)[propFn]('disabled', false)
           .closest('.form-item').removeClass('form-disabled');
       }
       else {
@@ -162,12 +172,30 @@
      * @param form
      *   The form used to create the token.
      */
-    processStripeResponse: function(status, response, form) {
+    processStripeResponse: function(status, response, form, errorContainer) {
       if (response.error) {
-        // Prepend error message to the form, wrapped in a error div.
-        $('<div class="stripe-errors messages error"></div>').text(Drupal.t(response.error.message)).prependTo(form);
+      	var propFn = (typeof $.fn.prop === 'function') ? 'prop' : 'attr';
+      	var errorElement = $(':input[data-stripe=' + response.error.param + ']', form);
+      	if (errorElement.length === 0) {
+      	  errorElement = $('*[data-stripe-key]', form);
+      	}
+      	// Ensure the error element has an ID
+        var id = errorElement[propFn]('id');
+        if (!id) {
+        	id = 'stripe-' + Drupal.behaviors.stripe.id++;
+          errorElement[propFn]('id', id);
+        }      	
+        
+        if (typeof errorContainer === 'undefined') {
+          errorContainer = form;
+        }
+        // Prepend error message to the container, wrapped in a error div.
+        $('<div class="stripe-errors messages error"></div>')
+        	.text(Drupal.t(response.error.message))
+        	[propFn]('id', id + '-error')
+        	.prependTo(form);
         // Add error class to the corresponding form element.
-        $(':input[data-stripe=' + response.error.param + ']', form).addClass('error');
+        errorElement.addClass('error');
       	// Insert empty value in token.
       	$(':input[data-stripe=token]', form).val(null);
       } else {
