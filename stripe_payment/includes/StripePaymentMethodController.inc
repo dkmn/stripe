@@ -139,17 +139,16 @@ class StripePaymentMethodController extends PaymentMethodController {
           $data['capture'] = $payment->method_data['application_fee'];
         }
         $charge = Stripe_Charge::create($data, $api_key);
-        watchdog(
+        $payment->setStatus($this->statusFromCharge($charge));
+        $payment->method_data['charge'] = $charge->id;watchdog(
           'stripe_payment',
           'Stripe Charge [id=@charge_id] created for Payment [pid=@pid].',
           array(
             '@charge_id' => $payment->method_data['charge'],
             '@pid' => $payment->pid,
           ),
-          WATCHDOG_DEBUG, url("payment/{$payment->pid}")
+          WATCHDOG_DEBUG, l(t('view'), "payment/{$payment->pid}", array('absolute' => TRUE))
         );
-        $payment->setStatus($this->statusFromCharge($charge));
-        $payment->method_data['charge'] = $charge->id;
       }
       else {
         // The Payment is already linked to a Stripe Charge. This should not
@@ -181,7 +180,7 @@ class StripePaymentMethodController extends PaymentMethodController {
           '@message' => $e->getMessage(),
         ),
         WATCHDOG_ERROR,
-        url("payment/{$payment->pid}")
+        l(t('view'), "payment/{$payment->pid}")
       );
     }
     catch (Stripe_InvalidRequestError $e) {
@@ -195,7 +194,7 @@ class StripePaymentMethodController extends PaymentMethodController {
           '!json_body' => '<?php ' . highlight_string(var_export($e->getJsonBody(), TRUE), TRUE),
         ),
         WATCHDOG_ERROR,
-        url("payment/{$payment->pid}")
+        l(t('view'), "payment/{$payment->pid}")
       );
     }
     catch (Stripe_AuthenticationError $e) {
@@ -218,7 +217,7 @@ class StripePaymentMethodController extends PaymentMethodController {
           '@message' => $e->getMessage(),
         ),
         WATCHDOG_ERROR,
-        url("admin/config/services/payment/method/{$payment->method->pmid}")
+        l(t('edit'), "admin/config/services/payment/method/{$payment->method->pmid}")
       );
     }
     catch (Stripe_ApiError $e) {
@@ -232,7 +231,7 @@ class StripePaymentMethodController extends PaymentMethodController {
           '!json_body' => '<?php ' . highlight_string(var_export($e->getJsonBody(), TRUE), TRUE),
         ),
         WATCHDOG_ERROR,
-        url("payment/{$payment->pid}")
+        l(t('view'), "payment/{$payment->pid}")
       );
     }
     catch (Exception $e) {
@@ -246,7 +245,7 @@ class StripePaymentMethodController extends PaymentMethodController {
           '!trace' => $e->getTraceAsString(),
         ),
         WATCHDOG_ERROR,
-        url("payment/{$payment->pid}")
+        l(t('view'), "payment/{$payment->pid}")
       );
     }
     // The only way to reach this LoC is to exit the try block with an
@@ -303,7 +302,7 @@ class StripePaymentMethodController extends PaymentMethodController {
                 '@url' => url("admin/config/services/payment/method/{$payment_method->pmid}"),
               ),
               WATCHDOG_ERROR,
-              url("admin/config/services/payment/method/{$payment_method->pmid}")
+              l(t('edit'), "admin/config/services/payment/method/{$payment_method->pmid}")
             );
             $accounts[$payment_method->pmid] = NULL;
           }
@@ -366,7 +365,7 @@ class StripePaymentMethodController extends PaymentMethodController {
               '@message' => $e->getMessage(),
             ),
             WATCHDOG_ERROR,
-            url("payment/{$payment->pid}")
+            l(t('view'), "payment/{$payment->pid}")
           );
         }
       }
@@ -413,7 +412,7 @@ class StripePaymentMethodController extends PaymentMethodController {
             '@message' => $e->getMessage(),
           ),
           WATCHDOG_ERROR,
-          url("payment/{$payment->pid}")
+          l(t('view'), "payment/{$payment->pid}")
         );
       }
     }
