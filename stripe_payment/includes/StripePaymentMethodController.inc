@@ -4,38 +4,6 @@
  * Stripe Payment controller class and helper code (classes and function).
  */
 
-/**
- * Implements PaymentMethodController::payment_method_configuration_form_elements_callback.
- */
-function stripe_payment_method_configuration_form_elements(array $form, array &$form_state) {
-  return $form_state['payment_method']->controller
-    ->payment_method_configuration_form_elements($form, $form_state);
-}
-
-/**
- * Implements validation for PaymentMethodController::payment_method_configuration_form_elements_callback.
- */
-function stripe_payment_method_configuration_form_elements_validate(array $form, array &$form_state) {
-  return $form_state['payment_method']->controller
-    ->payment_method_configuration_form_elements_validate($form, $form_state);
-}
-
-/**
- * Implements PaymentMethodController::payment_configuration_form_elements_callback.
- */
-function stripe_payment_configuration_form_elements(array $form, array &$form_state) {
-  return $form_state['payment']->method->controller
-    ->payment_configuration_form_elements($form, $form_state);
-}
-
-/**
- * Implements validation for PaymentMethodController::payment_configuration_form_elements_callback.
- */
-function stripe_payment_configuration_form_elements_validate(array $form, array &$form_state) {
-  return $form_state['payment']->method->controller
-    ->payment_configuration_form_elements_validate($form, $form_state);
-}
-
 class StripePaymentValidationException extends PaymentValidationException {}
 
 class StripePaymentMethodController extends PaymentMethodController {
@@ -66,9 +34,7 @@ class StripePaymentMethodController extends PaymentMethodController {
    * Public constructor.
    */
   public function __construct() {
-    if (!($library = libraries_load('stripe')) || empty($library['loaded'])) {
-      throw new Exception('Cannot load Stripe PHP Library.');
-    }
+    static::loadLibrary();
     $this->currencies = array_fill_keys(array('CAD', 'USD'), array('minimum' => 0.5));
     $this->title = t('Stripe Payment');
   }
@@ -77,6 +43,20 @@ class StripePaymentMethodController extends PaymentMethodController {
    * Wakeup.
    */
   public function __wakeup() {
+    static::loadLibrary();
+  }
+
+  /**
+   * Ensure the Stripe API library is loaded.
+   *
+   * This method is intended to be invoked fron __constructor() and __wakeup()
+   * to ensure the Stripe API is loaded before the controller is used. Avoiding
+   * the need to load the Stripe API in every method.
+   *
+   * @throws Exception
+   *   If the Stripe API library can not be loaded.
+   */
+  protected static function loadLibrary() {
     if (!($library = libraries_load('stripe')) || empty($library['loaded'])) {
       throw new Exception('Cannot load Stripe PHP Library.');
     }

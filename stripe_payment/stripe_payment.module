@@ -364,3 +364,35 @@ function stripe_payment_payment_delete(Payment $payment) {
       ->execute();
   }
 }
+
+/**
+ * Implements PaymentMethodController::payment_method_configuration_form_elements_callback.
+ */
+function stripe_payment_method_configuration_form_elements(array $form, array &$form_state) {
+  return $form_state['payment_method']->controller
+    ->payment_method_configuration_form_elements($form, $form_state);
+}
+
+/**
+ * Implements validation for PaymentMethodController::payment_method_configuration_form_elements_callback.
+ */
+function stripe_payment_method_configuration_form_elements_validate(array $form, array &$form_state) {
+  return $form_state['payment_method']->controller
+    ->payment_method_configuration_form_elements_validate($form, $form_state);
+}
+
+/**
+ * Implements PaymentMethodController::payment_configuration_form_elements_callback.
+ */
+function stripe_payment_configuration_form_elements(array $form, array &$form_state) {
+  return $form_state['payment']->method->controller
+    ->payment_configuration_form_elements($form, $form_state);
+}
+
+/**
+ * Implements validation for PaymentMethodController::payment_configuration_form_elements_callback.
+ */
+function stripe_payment_configuration_form_elements_validate(array $form, array &$form_state) {
+  return $form_state['payment']->method->controller
+    ->payment_configuration_form_elements_validate($form, $form_state);
+}
