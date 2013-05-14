@@ -6,6 +6,13 @@
  */
 
 function stripe_admin_test($form, $form_state) {
+  if (!stripe_get_key("secret") || !stripe_get_key("publishable")) {
+    $form['error_markup'] = array(
+      '#markup' => t("Please configure your Stripe API keys before attempting any test charges"),
+    );
+    return $form;
+  }
+
   $form['stripe'] = array(
     '#type' => 'stripe_payment',
     '#address' => isset($form_state['values']['toggle_address']) ? (boolean) $form_state['values']['toggle_address'] : FALSE,
@@ -34,7 +41,9 @@ function stripe_admin_test($form, $form_state) {
     '#value' => t('Submit Payment'),
     '#attributes' => array(
       'class' => array('submit-button'),
+
     ),
+    '#weight' => 100,
   );
   return $form;
 }
@@ -50,7 +59,7 @@ function stripe_admin_test_submit($form, &$form_state) {
       $charge = Stripe_Charge::create(array(
           "amount" => $form_state['values']['amount'], // amount in cents, again
           "currency" => "usd",
-          "card" => $form_state['values']['stripe_token'],
+          "card" => $form_state['values']['stripe']['token'],
           "description" => "Test Charge from " . variable_get('site_name', 'My Drupal Site'))
       );
       drupal_set_message("Success! Card was successfully charged for the amount of " . check_plain($form_state['values']['amount']));
