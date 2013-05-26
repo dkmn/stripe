@@ -4,3 +4,5 @@ package = Stripe
 version = VERSION
 core = 7.x
 configure = admin/config/stripe
+
+dependencies[] = libraries

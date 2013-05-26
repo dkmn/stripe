@@ -6,7 +6,15 @@
  */
 
 function stripe_admin_test() {
+  if (!stripe_get_key("secret") || !stripe_get_key("publishable")) {
+    $form['error_markup'] = array(
+      '#markup' => t("Please configure your Stripe API keys before attempting any test charges"),
+    );
+    return $form;
+  }
+
   $form = stripe_form_default_items();
+
   $form['card_number']['#description'] = t('Use 4242424242424242 for testing');
   $form['card_cvc']['#description'] = t('Use 123 for testing');
   $form['card_expiry_month']['#default_value'] = '10';
@@ -28,27 +36,24 @@ function stripe_admin_test() {
   return $form;
 }
 
-function stripe_admin_test_validate($form, &$form_state) {
-  stripe_initialize();
-  $charge = NULL;
-
-  try {
-    $charge = Stripe_Charge::create(array(
-      "amount" => $form_state['values']['amount'], // amount in cents, again
-      "currency" => "usd",
-      "card" => $form_state['values']['stripe_token'],
-      "description" => "Test Charge from " . variable_get('site_name', 'My Drupal Site'))
-    );
-  }
-  catch (Exception $e) {
-    form_set_error('', $e->getMessage());
-    return;
-  }
-
-  $form_state['storage']['charge'] = $charge;
-}
-
-
+/**
+ * Implements hook_submit().
+ */
 function stripe_admin_test_submit($form, &$form_state) {
-  drupal_set_message("Success! Card was successfully charged for the amount of " . check_plain($form_state['values']['amount']));
+  if (($library = libraries_load('stripe')) && !empty($library['loaded'])) {
+    try {
+      $charge = Stripe_Charge::create(array(
+          "amount" => $form_state['values']['amount'], // amount in cents, again
+          "currency" => "usd",
+          "card" => $form_state['values']['stripe_token'],
+          "description" => "Test Charge from " . variable_get('site_name', 'My Drupal Site'))
+      );
+      drupal_set_message("Success! Card was successfully charged for the amount of " . check_plain($form_state['values']['amount']));
+    }
+    catch (Exception $e) {
+      form_set_error('', $e->getMessage());
+      $form_state['rebuild'] = TRUE;
+      return;
+    }
+  }
 }

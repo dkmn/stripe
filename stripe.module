@@ -76,38 +76,6 @@ function stripe_menu() {
 }
 
 /**
- * Implements hook_requirements().
- */
-function stripe_requirements($phase) {
-  $requirements = array();
-  if ($phase == 'runtime') {
-    $requirements['stripe'] = _stripe_requirement_check();
-  }
-  return $requirements;
-}
-
-/**
- * Helper function to hook_requirements.
- */
-function _stripe_requirement_check() {
-  $t = get_t();
-  if (file_exists('sites/all/libraries/stripe/lib/Stripe.php')) {
-    return array(
-      'title' => $t('Stripe Payment API PHP Library'),
-      'value' => $t('Stripe PHP Library is in place. Version @version', array('@version' => file_get_contents('sites/all/libraries/stripe/VERSION'))),
-      'severity' => REQUIREMENT_OK,
-    );
-  }
-  else {
-    return array(
-      'title' => $t('Stripe Payment API PHP Library'),
-      'value' => $t('The Stripe PHP Library is not in place. <a href="https://code.stripe.com/stripe-php-latest.zip">Download the and unzip the library</a> then place the contents of that directory in sites/all/libraries/stripe'),
-      'severity' => REQUIREMENT_ERROR,
-    );
-  }
-}
-
-/**
  * Helper function to go fetch the normal form elements.
  */
 function stripe_form_default_items() {
@@ -270,27 +238,6 @@ function tg_stripe_live() {
 }
 
 /**
- * Initialize the Stripe PHP Library with the configured secret key.
- */
-function stripe_initialize() {
-  $inited = &drupal_static(__FUNCTION__);
-
-  // No need to do anything if we've already initialized.
-  if (isset($inited)) {
-    return;
-  }
-
-  require_once("sites/all/libraries/stripe/lib/Stripe.php");
-
-  $status = variable_get('stripe_key_status', 'test');
-  $secret_key_name = 'stripe_' . $status . '_secret';
-  $secret_key = variable_get($secret_key_name, '');
-
-  empty($secret_key) ? NULL : Stripe::setApiKey($secret_key);
-  $inited = TRUE;
-}
-
-/**
  * Get the Stripe publishable key.
  */
 function stripe_get_publishable_key() {
@@ -308,4 +255,73 @@ function stripe_webhook_response_output($var = NULL) {
   if (isset($var)) {
     print $var;
   }
+}
+
+/**
+ * Implements hook_libraries_info().
+ */
+function stripe_libraries_info() {
+  $libraries['stripe'] = array(
+    'name' => 'Stripe Payment API PHP Library',
+    'vendor url' => 'https://stripe.com/docs/libraries',
+    'download url' => 'https://stripe.com/docs/libraries#php-library',
+    'version arguments' => array(
+      'file' => 'VERSION',
+      'pattern' => '/([0-9a-zA-Z\.-]+)/',
+      'lines' => 1,
+    ),
+    'files' => array('php' => array('lib/Stripe.php')),
+    'callbacks' => array('post-load' => array('stripe_libraries_postload_callback')),
+  );
+  return $libraries;
+}
+
+/**
+ * Post-load callback for the Stripe PHP Library.
+ *
+ * @param array $library
+ *   An array of library information.
+ * @param string $version
+ *   If the $library array belongs to a certain version, a string containing the
+ *   version.
+ * @param string $variant
+ *   If the $library array belongs to a certain variant, a string containing the
+ *   variant name.
+ */
+function stripe_libraries_postload_callback($library, $version = NULL, $variant = NULL) {
+  if (!empty($library['loaded'])) {
+    $status = variable_get('stripe_key_status', 'test');
+    $secret_key_name = 'stripe_' . $status . '_secret';
+    $secret_key = variable_get($secret_key_name, '');
+
+    empty($secret_key) ? NULL : Stripe::setApiKey($secret_key);
+  }
+}
+
+/**
+ * Get the stripe key(s).
+ *
+ * @param string $type
+ *   The type of the key to retrieve, either 'secret' or 'publishable'
+ *   (optional).
+ * @param string $set
+ *   The keys set to use, either 'test' or 'live'. Defaults to the value of the
+ *   'stripe_key_status' variable.
+ *
+ * @return array|string
+ *   If $type is NULL, an array containing both the secret and publishable keys.
+ *   Otherwise, the request keys.
+ */
+function stripe_get_key($type = NULL, $set = NULL) {
+  $keys = drupal_static(__FUNCTION__, array());
+  if ($set === NULL) {
+    $set = variable_get('stripe_key_status', 'test');
+  }
+  if (empty($keys[$set])) {
+    $keys[$set] = array(
+      'secret' => variable_get("stripe_{$set}_secret", ''),
+      'publishable' => variable_get("stripe_{$set}_publishable", ''),
+    );
+  }
+  return ($type === NULL) ? $keys[$set] : (isset($keys[$set][$type]) ? $keys[$set][$type] : NULL);
 }
