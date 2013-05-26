@@ -325,3 +325,13 @@ function stripe_get_key($type = NULL, $set = NULL) {
   }
   return ($type === NULL) ? $keys[$set] : (isset($keys[$set][$type]) ? $keys[$set][$type] : NULL);
 }
+
+/**
+ * Returns data in plain text.
+ */
+function stripe_webhook_response_output($var = NULL) {
+  drupal_add_http_header('Content-Type', 'text/plain');
+  if (isset($var)) {
+    print $var;
+  }
+}
