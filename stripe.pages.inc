@@ -12,6 +12,7 @@ function stripe_webhooks_callback() {
     // Read in and decode the event data.
     $body = @file_get_contents('php://input');
     $event = json_decode($body);
+
     // For additional security - retrieve event data from ID
     if (is_object($event) && isset($event->id)) {
       $event = Stripe_Event::retrieve($event->id);
@@ -26,5 +27,5 @@ function stripe_webhooks_callback() {
   }
   // Something went wrong if we got here so return 404. If it is in fact
   // coming from Stripe, they will attempt to resend it for 3 days.
-  header('HTTP/1.0 404 Not Found');
+  drupal_not_found();
 }

@@ -67,7 +67,7 @@ function stripe_menu() {
     'title' => 'Stripe Webhooks',
     'description' => 'Handler for incoming Stripe Webhook requests.',
     'page callback' => 'stripe_webhooks_callback',
-    'delivery callback' => 'stripe_webhook_response_output',
+    //'delivery callback' => 'stripe_webhook_response_output',
     'access callback' => TRUE,
     'file' => 'stripe.pages.inc',
   );
@@ -76,114 +76,221 @@ function stripe_menu() {
 }
 
 /**
- * Helper function to go fetch the normal form elements.
+ * Implements hook_element_info().
  */
-function stripe_form_default_items() {
-  $identifier = stripe_form_identifier();
-  $form['card_number'] = array(
+function stripe_element_info() {
+  return array(
+    'stripe_payment' => array(
+      '#process' => array('stripe_element_process'),
+      '#cardholder_name' => TRUE,
+      '#address' => FALSE,
+      '#cvc' => TRUE,
+      '#publishable_key' => NULL,
+    ),
+  );
+}
+
+/**
+ * Process callback for this module elements.
+ *
+ * TODO: Attach JS through a library defined via hook_library() implementation.
+ * TODO: Support form WITHOUT Stripe.js.
+ *       This would require an configuration variable to be set to TRUE. This
+ *       will have serious security implications. No UI should be provided to
+ *       enable this, requiring either a clear and informed user action or usage
+ *       of third party code.
+ *
+ * @param array $element
+ *   The processed element.
+ * @param array $form_state
+ *   The form state.
+ * @param array $complete_form
+ *   The complete form.
+ */
+function stripe_element_process($element, $form_state, $complete_form) {
+  $live = stripe_subscription_live();
+  $element['#type'] = 'fieldset';
+  $element += element_info('fieldset');
+  $element['#tree'] = TRUE;
+  $element['stripe_token'] = array(
+    '#type' => 'hidden',
+    '#element_validate' => array('stripe_token_element_validate'),
+    '#attributes' => array('data-stripe' => 'token'),
+  );
+
+  if ($element['#cardholder_name']) {
+    if (is_bool($element['#cardholder_name'])) {
+      // Embed our own cardholder name element.
+      $element['name'] = array(
+        '#type' => 'textfield',
+        '#title' => t('Cardholder Name'),
+        '#description' => t('Name of the cardholder as displayed on the card.'),
+        '#attributes' => array('data-stripe' => 'name'),
+        '#disabled' => TRUE,
+        '#element_validate' => array('stripe_element_validate_empty'),
+        '#pre_render' => array('stripe_element_remove_name'),
+      );
+    }
+    elseif (is_array($element['#cardholder_name'])) {
+      // Use existing cardholder name element.
+      $cardholder_name_element = &drupal_array_get_nested_value($form, $element['#cardholder_name']);
+      if ($cardholder_name_element) {
+        $cardholder_name_element['#attributes']['data-stripe'] = 'name';
+        $cardholder_name_element['#disabled'] = TRUE;
+        $cardholder_name_element['#element_validate'][] = 'stripe_element_validate_empty';
+        $cardholder_name_element['#pre_render'][] = 'stripe_element_remove_name';
+      }
+    }
+  }
+
+  if ($element['#address']) {
+    require_once 'includes/locale.inc';
+    if (is_bool($element['#address'])) {
+      // Embed our own billign address elements.
+      $element['address'] = array(
+        '#type' => 'fieldset',
+        '#title' => t('Billing address'),
+        'thoroughfare' => array(
+          '#type' => 'textfield',
+          '#title' => t('Address 1'),
+          '#attributes' => array('data-stripe' => 'address_line1'),
+          '#disabled' => TRUE,
+          '#element_validate' => array('stripe_element_validate_empty'),
+          '#pre_render' => array('stripe_element_remove_name'),
+        ),
+        'premise' => array(
+          '#type' => 'textfield',
+          '#title' => t('Address 2'),
+          '#attributes' => array('data-stripe' => 'address_line2'),
+          '#disabled' => TRUE,
+          '#element_validate' => array('stripe_element_validate_empty'),
+          '#pre_render' => array('stripe_element_remove_name'),
+        ),
+        'locality' => array(
+          '#type' => 'textfield',
+          '#title' => t('City'),
+          '#attributes' => array('data-stripe' => 'address_city'),
+          '#disabled' => TRUE,
+          '#element_validate' => array('stripe_element_validate_empty'),
+          '#pre_render' => array('stripe_element_remove_name'),
+        ),
+        'administrative_area' => array(
+          '#type' => 'textfield',
+          '#title' => t('State'),
+          '#attributes' => array('data-stripe' => 'address_state'),
+          '#disabled' => TRUE,
+          '#element_validate' => array('stripe_element_validate_empty'),
+          '#pre_render' => array('stripe_element_remove_name'),
+        ),
+        'postal_code' => array(
+          '#type' => 'textfield',
+          '#title' => t('Postal code'),
+          '#attributes' => array('data-stripe' => 'address_zip'),
+          '#disabled' => TRUE,
+          '#element_validate' => array('stripe_element_validate_empty'),
+          '#pre_render' => array('stripe_element_remove_name'),
+        ),
+        'country' => array(
+          '#type' => 'select',
+          '#title' => t('Country'),
+          '#attributes' => array('data-stripe' => 'address_country'),
+          '#options' => country_get_list(),
+          '#disabled' => TRUE,
+          '#element_validate' => array('stripe_element_validate_empty'),
+          '#pre_render' => array('stripe_element_remove_name'),
+        ),
+      );
+    }
+    elseif (is_array($element['#address'])) {
+      // Use existing billing address elements.
+      $address_element = &drupal_array_get_nested_value($form, $element['#address']);
+      if ($address_element) {
+        $sub_elements = array(
+          'thoroughfare' => 'address_line1',
+          'premise' => 'address_line2',
+          'locality' => 'address_city',
+          'administrative_area' => 'address_state',
+          'postal_code' => 'address_zip',
+          'country' => 'address_country',
+        );
+        foreach ($sub_elements as $name => $data_stripe) {
+          if (isset($address_element[$name])) {
+            $address_element[$name]['#attributes']['data-stripe'] = $data_stripe;
+            $address_element[$name]['#disabled'] = TRUE;
+            $address_element[$name]['#element_validate'][] = 'stripe_element_validate_empty';
+            $address_element[$name]['#pre_render'][] = 'stripe_element_remove_name';
+          }
+        }
+      }
+    }
+  }
+
+  $element['number'] = array(
     '#type' => 'textfield',
     '#title' => t('Card Number'),
-    '#size' => 16,
+    '#description' => !$live ? t('Test Mode: Use 4242424242424242 ') : '',
+    '#maxlength' => 16,
     '#attributes' => array(
+      'data-stripe' => 'number',
       'autocomplete' => 'off',
-      'class' => array('stripe-number', $identifier),
     ),
+    '#disabled' => TRUE,
+    '#element_validate' => array('stripe_element_validate_empty'),
+    '#pre_render' => array('stripe_element_remove_name'),
   );
-
-  $form['card_cvc'] = array(
-    '#type' => 'textfield',
-    '#title' => t('CVC'),
-    '#size' => 4,
-    '#attributes' => array(
-      'autocomplete' => 'off',
-      'class' => array('stripe-cvc'),
-    ),
-  );
-
-  // Will be re-enabled by javascript. This ensures that the element cannot be
-  // used unless javascript is fully functioning.
-  $form['card_number']['#disabled'] =
-     $form['card_cvc']['#disabled'] = TRUE;
-  // Remove the #name field before rendering, so that this element will not
-  // get posted back to the server.
-  $form['card_number']['#pre_render'] =
-     $form['card_cvc']['#pre_render'] = array('stripe_element_remove_name');
-  // Ensure the element is empty when submitted.
-  $form['card_number']['#element_validate'] =
-     $form['card_cvc']['#element_validate'] = array('stripe_element_validate_empty');
-
-
-  $form['card_expiry_month'] = array(
+  $month_options = array();
+  for ($i = 1; $i < 13; $i++) {
+    $month_options[sprintf('%02d', $i)] = format_date(strtotime(sprintf('%02d/01', $i)), 'custom', 'm (M)');
+  }
+  $element['expiry_month'] = array(
     '#type' => 'select',
     '#title' => t('Expiration Month'),
-    '#attributes' => array(
-      'class' => array('stripe-exp_month'),
-    ),
+    '#attributes' => array('data-stripe' => 'exp_month'),
     '#multiple' => FALSE,
-    '#options' => array(
-      '01' => t('01 (Jan)'),
-      '02' => t('02 (Feb)'),
-      '03' => t('03 (Mar)'),
-      '04' => t('04 (Apr)'),
-      '05' => t('05 (May)'),
-      '06' => t('06 (Jun)'),
-      '07' => t('07 (Jul)'),
-      '08' => t('08 (Aug)'),
-      '09' => t('09 (Sep)'),
-      '10' => t('10 (Oct)'),
-      '11' => t('11 (Nov)'),
-      '12' => t('12 (Dec)'),
-    ),
+    '#options' => $month_options,
+    '#disabled' => TRUE,
+    '#element_validate' => array('stripe_element_validate_empty'),
+    '#pre_render' => array('stripe_element_remove_name'),
   );
 
   $current_year = date('Y');
   $years = range($current_year, $current_year + 15);
   $year_options = array_combine($years, $years);
 
-  $form['card_expiry_year'] = array(
+  $element['expiry_year'] = array(
     '#type' => 'select',
     '#title' => t('Expiration Year'),
-    '#attributes' => array(
-      'class' => array('stripe-exp_year'),
-    ),
+    '#attributes' => array('data-stripe' => 'exp_year'),
     '#options' => $year_options,
+    '#disabled' => TRUE,
+    '#element_validate' => array('stripe_element_validate_empty'),
+    '#pre_render' => array('stripe_element_remove_name'),
   );
 
-  // The stripe JS will populate this value upon successful submission.
-  $form['stripe_token'] = array(
-    '#type' => 'hidden',
-    '#element_validate' => array('stripe_token_element_validate'),
-  );
-
-  if ($pub_key = stripe_get_publishable_key()) {
-    $js_settings = array(
-      'pubKey' => $pub_key,
-      'identifiers' => array($identifier),
-    );
-
-    // Attach the javascript from Stripe.
-    $form['#attached']['js']['https://js.stripe.com/v1/'] = array(
-      'type' => 'external',
-    );
-    // Attach our javascript.
-    $form['#attached']['js'][] = drupal_get_path('module', 'stripe') . '/stripe.js';
-    // Attach the javascript settings.
-    $form['#attached']['js'][] = array(
-      'data' => array('stripe' => $js_settings),
-      'type' => 'setting',
+  if ($element['#cvc']) {
+    $element['cvc'] = array(
+      '#type' => 'textfield',
+      '#title' => t('CVC'),
+      '#description' => !$live ? t('Test Mode: Use 123') : '',
+      '#size' => 5,
+      '#maxlength' => 4,
+      '#attributes' => array(
+        'autocomplete' => 'off',
+        'data-stripe' => 'cvc',
+      ),
+      '#disabled' => TRUE,
+      '#element_validate' => array('stripe_element_validate_empty'),
+      '#pre_render' => array('stripe_element_remove_name'),
     );
   }
 
-  return $form;
-}
-
-/**
- * Return a unique identifier for each stripe form per page load. This is used
- * in the stripe.js to know which form was submitted.
- */
-function stripe_form_identifier() {
-  $i = &drupal_static(__FUNCTION__, 1);
-  return 'stripe-form-' . $i++;
+  // Attach the javascript from Stripe.
+  $element['#attached']['js']['https://js.stripe.com/v1/'] = array('type' => 'external');
+  // Attach our javascript.
+  $element['#attached']['js'][] = drupal_get_path('module', 'stripe') . '/stripe.js';
+  // Attach the publishable key to the form element.
+  $element['#attributes']['data-stripe-key'] = !empty($element['#publishable_key']) ? $element['#publishable_key'] : stripe_get_key('publishable');
+  return $element;
 }
 
 /**
@@ -208,12 +315,12 @@ function stripe_element_validate_empty($element, $form_state, $form) {
   if (!empty($element['#value']) && !$logged) {
     // Set an error on the first element this happened on.
     form_error($element, 'There was a problem processing your payment. For '   .
-                         'your own protection, it is recommended you do NOT '  .
-                         'attempt to re-enter your payment information.');
+      'your own protection, it is recommended you do NOT '  .
+      'attempt to re-enter your payment information.');
     // Now log a watchdog alert.
     $message = 'Credit Card information is being posted to your server. '      .
-               'Please disable Stripe module immediately and submit a bug '    .
-               'report at http://drupal.org/node/add/project-issue/stripe.';
+      'Please disable Stripe module immediately and submit a bug '    .
+      'report at http://drupal.org/node/add/project-issue/stripe.';
     watchdog('stripe', $message, NULL, WATCHDOG_ALERT);
     $logged = TRUE;
   }
