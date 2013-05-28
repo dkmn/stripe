@@ -281,7 +281,7 @@ class StripePaymentMethodController extends PaymentMethodController {
           $api_key = !empty($payment_method->controller_data['keys']['mode']) ? $payment_method->controller_data['keys']['secret'] : stripe_get_key('secret');
           try {
             $stripe_account = Stripe_Account::retrieve($api_key);
-            cache_set($cid, $stripe_account, 'strip_payment', CACHE_TEMPORARY);
+            cache_set($cid, $stripe_account, 'cache', CACHE_TEMPORARY);
             $accounts[$payment_method->pmid] = $stripe_account;
           }
           catch (Stripe_Error $e) {

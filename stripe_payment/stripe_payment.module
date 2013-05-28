@@ -270,7 +270,7 @@ function stripe_payment_payment_method_update(PaymentMethod $payment_method) {
     }
     // Clear cached data related to this Payment Method.
     drupal_static_reset('StripePaymentMethodController::retrieveAccount');
-    cache_clear_all("stripe_payment_method:$payment_method->pmid:", 'stripe_payment', TRUE);
+    cache_clear_all("stripe_payment_method:$payment_method->pmid:", 'cache', TRUE);
   }
 }
 
