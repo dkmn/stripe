@@ -1,10 +1,12 @@
 <?php
-
 /**
  * @file
  * Stripe test form building callback and handlers.
  */
 
+/**
+ * Test/example implementation of the stripe form with the stripe_payment element.
+ */
 function stripe_admin_test($form, $form_state) {
   if (!stripe_get_key("secret") || !stripe_get_key("publishable")) {
     $form['error_markup'] = array(
@@ -48,18 +50,24 @@ function stripe_admin_test($form, $form_state) {
   return $form;
 }
 
+/**
+ * AJAX callback for dynamic address
+ */
 function stripe_admin_test_ajax($form, &$form_state) {
   $form_state['rebuild'] = TRUE;
   return $form['stripe'];
 }
 
+/**
+ * Submit callback for the stripe_admin_test form.
+ */
 function stripe_admin_test_submit($form, &$form_state) {
   if (($library = libraries_load('stripe')) && !empty($library['loaded'])) {
     try {
       $charge = Stripe_Charge::create(array(
           "amount" => $form_state['values']['amount'], // amount in cents, again
           "currency" => "usd",
-          "card" => $form_state['values']['stripe']['token'],
+          "card" => $form_state['values']['stripe']['stripe_token'],
           "description" => "Test Charge from " . variable_get('site_name', 'My Drupal Site'))
       );
       drupal_set_message("Success! Card was successfully charged for the amount of " . check_plain($form_state['values']['amount']));

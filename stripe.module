@@ -67,7 +67,7 @@ function stripe_menu() {
     'title' => 'Stripe Webhooks',
     'description' => 'Handler for incoming Stripe Webhook requests.',
     'page callback' => 'stripe_webhooks_callback',
-    'delivery callback' => 'stripe_webhook_response_output',
+    //'delivery callback' => 'stripe_webhook_response_output',
     'access callback' => TRUE,
     'file' => 'stripe.pages.inc',
   );
@@ -108,53 +108,14 @@ function stripe_element_info() {
  *   The complete form.
  */
 function stripe_element_process($element, $form_state, $complete_form) {
+  $live = stripe_subscription_live();
   $element['#type'] = 'fieldset';
   $element += element_info('fieldset');
   $element['#tree'] = TRUE;
-  $element['token'] = array(
+  $element['stripe_token'] = array(
     '#type' => 'hidden',
     '#element_validate' => array('stripe_token_element_validate'),
     '#attributes' => array('data-stripe' => 'token'),
-  );
-  $element['number'] = array(
-    '#type' => 'textfield',
-    '#title' => t('Card Number'),
-    '#size' => 16,
-    '#attributes' => array(
-      'data-stripe' => 'number',
-      'autocomplete' => 'off',
-    ),
-    '#disabled' => TRUE,
-    '#element_validate' => array('stripe_element_validate_empty'),
-    '#pre_render' => array('stripe_element_remove_name'),
-  );
-  $month_options = array();
-  for ($i = 1; $i < 13; $i++) {
-    $month_options[sprintf('%02d', $i)] = format_date(strtotime(sprintf('%02d/01', $i)), 'custom', 'm (M)');
-  }
-  $element['expiry_month'] = array(
-    '#type' => 'select',
-    '#title' => t('Expiration Month'),
-    '#attributes' => array('data-stripe' => 'exp_month'),
-    '#multiple' => FALSE,
-    '#options' => $month_options,
-    '#disabled' => TRUE,
-    '#element_validate' => array('stripe_element_validate_empty'),
-    '#pre_render' => array('stripe_element_remove_name'),
-  );
-
-  $current_year = date('Y');
-  $years = range($current_year, $current_year + 15);
-  $year_options = array_combine($years, $years);
-
-  $element['expiry_year'] = array(
-    '#type' => 'select',
-    '#title' => t('Expiration Year'),
-    '#attributes' => array('data-stripe' => 'exp_year'),
-    '#options' => $year_options,
-    '#disabled' => TRUE,
-    '#element_validate' => array('stripe_element_validate_empty'),
-    '#pre_render' => array('stripe_element_remove_name'),
   );
 
   if ($element['#cardholder_name']) {
@@ -162,8 +123,8 @@ function stripe_element_process($element, $form_state, $complete_form) {
       // Embed our own cardholder name element.
       $element['name'] = array(
         '#type' => 'textfield',
-        '#title' => t('Cardholder name'),
-        '#description' => t('Name of the cardholder as displayed on the card itself.'),
+        '#title' => t('Cardholder Name'),
+        '#description' => t('Name of the cardholder as displayed on the card.'),
         '#attributes' => array('data-stripe' => 'name'),
         '#disabled' => TRUE,
         '#element_validate' => array('stripe_element_validate_empty'),
@@ -182,22 +143,8 @@ function stripe_element_process($element, $form_state, $complete_form) {
     }
   }
 
-  if ($element['#cvc']) {
-    $element['cvc'] = array(
-      '#type' => 'textfield',
-      '#title' => t('Card code'),
-      '#size' => 4,
-      '#attributes' => array(
-        'autocomplete' => 'off',
-        'data-stripe' => 'cvc',
-      ),
-      '#disabled' => TRUE,
-      '#element_validate' => array('stripe_element_validate_empty'),
-      '#pre_render' => array('stripe_element_remove_name'),
-    );
-  }
-
   if ($element['#address']) {
+    require_once 'includes/locale.inc';
     if (is_bool($element['#address'])) {
       // Embed our own billign address elements.
       $element['address'] = array(
@@ -277,6 +224,66 @@ function stripe_element_process($element, $form_state, $complete_form) {
       }
     }
   }
+
+  $element['number'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Card Number'),
+    '#description' => !$live ? t('Test Mode: Use 4242424242424242 ') : '',
+    '#maxlength' => 16,
+    '#attributes' => array(
+      'data-stripe' => 'number',
+      'autocomplete' => 'off',
+    ),
+    '#disabled' => TRUE,
+    '#element_validate' => array('stripe_element_validate_empty'),
+    '#pre_render' => array('stripe_element_remove_name'),
+  );
+  $month_options = array();
+  for ($i = 1; $i < 13; $i++) {
+    $month_options[sprintf('%02d', $i)] = format_date(strtotime(sprintf('%02d/01', $i)), 'custom', 'm (M)');
+  }
+  $element['expiry_month'] = array(
+    '#type' => 'select',
+    '#title' => t('Expiration Month'),
+    '#attributes' => array('data-stripe' => 'exp_month'),
+    '#multiple' => FALSE,
+    '#options' => $month_options,
+    '#disabled' => TRUE,
+    '#element_validate' => array('stripe_element_validate_empty'),
+    '#pre_render' => array('stripe_element_remove_name'),
+  );
+
+  $current_year = date('Y');
+  $years = range($current_year, $current_year + 15);
+  $year_options = array_combine($years, $years);
+
+  $element['expiry_year'] = array(
+    '#type' => 'select',
+    '#title' => t('Expiration Year'),
+    '#attributes' => array('data-stripe' => 'exp_year'),
+    '#options' => $year_options,
+    '#disabled' => TRUE,
+    '#element_validate' => array('stripe_element_validate_empty'),
+    '#pre_render' => array('stripe_element_remove_name'),
+  );
+
+  if ($element['#cvc']) {
+    $element['cvc'] = array(
+      '#type' => 'textfield',
+      '#title' => t('CVC'),
+      '#description' => !$live ? t('Test Mode: Use 123') : '',
+      '#size' => 5,
+      '#maxlength' => 4,
+      '#attributes' => array(
+        'autocomplete' => 'off',
+        'data-stripe' => 'cvc',
+      ),
+      '#disabled' => TRUE,
+      '#element_validate' => array('stripe_element_validate_empty'),
+      '#pre_render' => array('stripe_element_remove_name'),
+    );
+  }
+
   // Attach the javascript from Stripe.
   $element['#attached']['js']['https://js.stripe.com/v1/'] = array('type' => 'external');
   // Attach our javascript.
@@ -284,23 +291,6 @@ function stripe_element_process($element, $form_state, $complete_form) {
   // Attach the publishable key to the form element.
   $element['#attributes']['data-stripe-key'] = !empty($element['#publishable_key']) ? $element['#publishable_key'] : stripe_get_key('publishable');
   return $element;
-}
-
-/**
- * Helper function to go fetch the normal form elements.
- *
- * TODO: Remove this function, consumer should create their own form array with
- * a array('#type' => 'stripe_payment') element.
- *
- * @deprecated Use the 'stripe_payment' element type.
- */
-function stripe_form_default_items() {
-  $form['stripe'] = array(
-    '#type' => 'stripe_payment',
-    '#address' => TRUE,
-  );
-
-  return $form;
 }
 
 /**
@@ -325,12 +315,12 @@ function stripe_element_validate_empty($element, $form_state, $form) {
   if (!empty($element['#value']) && !$logged) {
     // Set an error on the first element this happened on.
     form_error($element, 'There was a problem processing your payment. For '   .
-                         'your own protection, it is recommended you do NOT '  .
-                         'attempt to re-enter your payment information.');
+      'your own protection, it is recommended you do NOT '  .
+      'attempt to re-enter your payment information.');
     // Now log a watchdog alert.
     $message = 'Credit Card information is being posted to your server. '      .
-               'Please disable Stripe module immediately and submit a bug '    .
-               'report at http://drupal.org/node/add/project-issue/stripe.';
+      'Please disable Stripe module immediately and submit a bug '    .
+      'report at http://drupal.org/node/add/project-issue/stripe.';
     watchdog('stripe', $message, NULL, WATCHDOG_ALERT);
     $logged = TRUE;
   }
@@ -362,16 +352,6 @@ function stripe_get_publishable_key() {
   $pub_key_name = 'stripe_' . $status . '_publishable';
   $pub_key = variable_get($pub_key_name, '');
   return $pub_key;
-}
-
-/**
- * Returns data in plain text.
- */
-function stripe_webhook_response_output($var = NULL) {
-  drupal_add_http_header('Content-Type', 'text/plain');
-  if (isset($var)) {
-    print $var;
-  }
 }
 
 /**
@@ -441,4 +421,14 @@ function stripe_get_key($type = NULL, $set = NULL) {
     );
   }
   return ($type === NULL) ? $keys[$set] : (isset($keys[$set][$type]) ? $keys[$set][$type] : NULL);
+}
+
+/**
+ * Returns data in plain text.
+ */
+function stripe_webhook_response_output($var = NULL) {
+  drupal_add_http_header('Content-Type', 'text/plain');
+  if (isset($var)) {
+    print $var;
+  }
 }
