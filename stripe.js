@@ -144,7 +144,7 @@
      * @see https://stripe.com/docs/stripe.js#createToken
      *
      * @param status
-     *   The resposne status code, as described in Stripe API doc.
+     *   The response status code, as described in Stripe API doc.
      * @param response
      *   The response object.
      */
