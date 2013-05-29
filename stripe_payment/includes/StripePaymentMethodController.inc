@@ -603,6 +603,6 @@ class StripePaymentMethodController extends PaymentMethodController {
   public function payment_configuration_form_elements_validate(array $element, array &$form_state) {
     $values = drupal_array_get_nested_value($form_state['values'], $element['#parents']);
     $payment = &$form_state['payment'];
-    $payment->method_data['token'] = $values['stripe']['token'];
+    $payment->method_data['token'] = $values['stripe']['stripe_token'];
   }
 }
