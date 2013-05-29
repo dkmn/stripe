@@ -108,7 +108,7 @@ function stripe_element_info() {
  *   The complete form.
  */
 function stripe_element_process($element, $form_state, $complete_form) {
-  $live = stripe_subscription_live();
+  $live = variable_get('stripe_key_status', 'test') === 'live';
   $element['#type'] = 'fieldset';
   $element += element_info('fieldset');
   $element['#tree'] = TRUE;
