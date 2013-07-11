@@ -18,18 +18,18 @@
         // Disable Stripe input elements (and add disabled class on wrapper).
         $(':input[data-stripe]:enabled', this.form)[propFn]('disabled', true)
           .closest('.form-item').addClass('form-disabled');
-        // Set publishable key *stored in the form element).
-        Stripe.setPublishableKey(this.form.data('stripeKey'));
-        // Create the token.
-        Stripe.createToken(Drupal.behaviors.stripe.extractTokenData(this.form), $.proxy(Drupal.ajax.prototype.beforeSerializeStripeResponseHandler, this));
-        // Cancel this submit, the form will be re-submitted in token creation
-        // callback.
-        return false;
-      } else {
-        // Enable the token item.
-        // Call original Drupal.ajax.prototype.beforeSerialize.
-        originalBeforeSerialize.apply(this, arguments);
+        // Create the token (unless the form is flagged to prevent it).
+        if (!$.data(this, 'stripeNoToken')) {
+          // Set publishable key *stored in the form element).
+          Stripe.setPublishableKey(this.form.data('stripeKey'));
+          Stripe.createToken(Drupal.behaviors.stripe.extractTokenData(this.form), $.proxy(Drupal.ajax.prototype.beforeSerializeStripeResponseHandler, this));
+          // Cancel this submit, the form will be re-submitted in token creation
+          // callback.
+          return false;
+        }
       }
+      // Call original Drupal.ajax.prototype.beforeSerialize.
+      originalBeforeSerialize.apply(this, arguments);
     }
 
     /**
@@ -68,7 +68,7 @@
         var key = $(this).attr('data-stripe-key');
         // Get the form containing the Stripe fieldset.
         $(this).closest('form')
-          // Enable Stripe input elements (and remove matching classe).
+          // Enable Stripe input elements (and remove matching classes).
           .find(':input[data-stripe]', this)
             [propFn]('disabled', false)
             .closest('.form-item')
@@ -77,10 +77,14 @@
           .end()
           // Only do the following once for each form.
           .once('stripe')
-          // Register submit handler, with key as event data.
+          // Register submit handler.
           .submit(Drupal.behaviors.stripe.stripeSubmitHandler)
-          // Store the key in the form element, to be used in our submit hanlders.
-          .data('stripeKey', key)       
+          // Prevent token generation when the form is submitted with a .stripe-no-token button.
+          .find('input[type="submit"].stripe-no-token, button[type="submit"].stripe-no-token')
+            .click(Drupal.behaviors.stripe.stripeNoTokenClickHandler)
+          .end()
+          // Store the key in the form element, to be used in our submit handlers.
+          .data('stripeKey', key)
       });
     },
     detach: function(context, settings, trigger) {
@@ -96,8 +100,8 @@
     /**
      * Extract token creation data from a form.
      *
-     * Stripe.createToken() should support as first argument and pull the information from
-     * inputs marked up with the data-stripe attribute. But it does not seems to properly
+     * Stripe.createToken() should support the form as first argument and pull the information
+     * from inputs marked up with the data-stripe attribute. But it does not seems to properly
      * pull value from <select> elements for the 'exp_month' and 'exp_year' fields.
      *
      */
@@ -120,21 +124,35 @@
      *   The triggering event object.
      */
     stripeSubmitHandler: function (event) {
-      // Prevent the form submitting with the default action.
-      event.preventDefault();
-
-      // Clear out all errors.
+      // Clear out all (Stripe) errors.
       $(':input[data-stripe].error', this).removeClass('error');
       $('.stripe-errors').remove();
 
-      // Set publishable key.
-      Stripe.setPublishableKey($.data(this, 'stripeKey'));
+      // Disable Stripe input elements (and add disabled class on wrapper).
+      var propFn = (typeof $.fn.prop === 'function') ? 'prop' : 'attr';
+      $(':input[data-stripe]:enabled', this.form)[propFn]('disabled', true)
+        .closest('.form-item').addClass('form-disabled');
 
-      // Create the token.
-      Stripe.createToken(Drupal.behaviors.stripe.extractTokenData(this), $.proxy(Drupal.behaviors.stripe.stripeResponseHandler, this));
-
-      // Prevent the form from submitting with the default action.
-      return false;
+      // Create the token (unless the form is flagged to prevent it).
+      if (!$.data(this, 'stripeNoToken')) {
+        // Set publishable key.
+        Stripe.setPublishableKey($.data(this, 'stripeKey'));
+        Stripe.createToken(Drupal.behaviors.stripe.extractTokenData(this), $.proxy(Drupal.behaviors.stripe.stripeResponseHandler, this));
+        // Prevent the form from submitting with the default action.
+        event.preventDefault();
+        return false;
+      }
+    },
+    /**
+     * No token button click handler.
+     *
+     * Set a flag on the form to prevent generation of a Stripe token on submit.
+     *
+     * @param event
+     *   The triggering event object.
+     */
+    stripeNoTokenClickHandler: function (event) {
+      $(this).closest('form').data('stripeNoToken', true);
     },
     /**
      * Stripe (create token) response handler.
