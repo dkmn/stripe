@@ -12,14 +12,18 @@ function stripe_webhooks_callback() {
     // Read in and decode the event data.
     $body = @file_get_contents('php://input');
     $event = json_decode($body);
+    // Log event in watchdog.
+    if (variable_get('stripe_log_webhooks', 0) == 1) {
+      watchdog('stripe', 'Stripe Webhook %type: <pre>@event</pre>', array(
+        '%type' =>  (is_object($event) && isset($event->type)) ? $event->type : t('<undefined>'),
+        '@event' => print_r($event, TRUE),
+      ), WATCHDOG_DEBUG);
+    }
     // For additional security - retrieve event data from ID
     if (is_object($event) && isset($event->id)) {
       $event = Stripe_Event::retrieve($event->id);
       if (is_object($event) && isset($event->id)) {
         module_invoke_all('stripe_webhook', $event);
-        if (variable_get('stripe_log_webhooks', 0) == 1) {
-          watchdog('stripe', 'Stripe Webhook ' . $event->type . ': <pre>' . print_r($event, TRUE) . '</pre>');
-        }
         return 'OK';
       }
     }
