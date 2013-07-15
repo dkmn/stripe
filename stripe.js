@@ -219,8 +219,8 @@
       } else {
         // Use newer jQuery's .prop() when available.
         var propFn = (typeof $.fn.prop === 'function') ? 'prop' : 'attr';
-        // Insert the token into the form so it gets submitted to the server.
-        $(':input[data-stripe=token]', form).val(response.id);
+        // Insert the token into the form and enabled its element so it gets submitted to the server.
+        $(':input[data-stripe=token]', form)[propFn]('disabled', false).val(response.id);
       }
     },
     /**
