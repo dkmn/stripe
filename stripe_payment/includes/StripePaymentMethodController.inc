@@ -112,7 +112,7 @@ class StripePaymentMethodController extends PaymentMethodController {
       if (empty($payment->method_data['charge'])) {
         // Create the Stripe Charge for the payment.
         $data = array(
-          'amount' => $payment->totalAmount(TRUE),
+          'amount' => $payment->totalAmount(TRUE) * 100,
           'currency' => $payment->currency_code,
           'description' => t($payment->description, $payment->description_arguments),
         );
@@ -140,7 +140,8 @@ class StripePaymentMethodController extends PaymentMethodController {
         }
         $charge = Stripe_Charge::create($data, $api_key);
         $payment->setStatus($this->statusFromCharge($charge));
-        $payment->method_data['charge'] = $charge->id;watchdog(
+        $payment->method_data['charge'] = $charge->id;
+        watchdog(
           'stripe_payment',
           'Stripe Charge [id=@charge_id] created for Payment [pid=@pid].',
           array(
@@ -319,7 +320,7 @@ class StripePaymentMethodController extends PaymentMethodController {
    * Retrieve the Stripe Charge object for a given Payment.
    *
    * This method handles Stripe errors and logs them to Drupal's watchdog. If
-   * the user as view access to the Payment object, errors are also displayed
+   * the user has view access to the Payment object, errors are also displayed
    * as error message.
    *
    * Result for a given Payment and its Payment Method is cached temporarily in
