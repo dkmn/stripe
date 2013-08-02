@@ -297,7 +297,7 @@ function stripe_element_process($element, $form_state, $complete_form) {
  * Validate the stripe token to be sure that it was set by the javascript.
  */
 function stripe_token_element_validate($element, $form_state, $form) {
-  if (empty($element['#value']) && $element['#access']) {
+  if (empty($element['#value']) && isset($element['#access']) && $element['#access']) {
     form_error($element, t('There was a problem processing your payment.'));
   }
 }
