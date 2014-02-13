@@ -5,6 +5,7 @@
  * Drupal hooks used for integrating the Stripe service.
  */
 
+define('STRIPE_DEFAULT_API', '2013-10-29');
 /**
  * Implements hook_help().
  */
@@ -394,6 +395,28 @@ function stripe_libraries_postload_callback($library, $version = NULL, $variant 
     empty($secret_key) ? NULL : Stripe::setApiKey($secret_key);
   }
 }
+
+/**
+ * Wrapper Around library_load that also sets API Version
+ * @param null $api_version
+ * @return array
+ */
+function stripe_load_library_version($api_version = NULL) {
+  $library = library_load('stripe');
+  // First check to see if this function give an explicit API Version to use.
+  if ($api_version) {
+    Stripe::setApiVersion($api_version);
+  }
+  else{
+    // No API Version supplied us setting if any.
+    $settings_api_version = trim(variable_get('stripe_api_version', STRIPE_DEFAULT_API));
+    if ($settings_api_version) {
+      Stripe::setApiVersion($api_version);
+    }
+  }
+  return $library;
+}
+
 
 /**
  * Get the stripe key(s).

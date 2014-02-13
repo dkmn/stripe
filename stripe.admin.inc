@@ -61,6 +61,13 @@ function stripe_admin_keys() {
     '#required' => TRUE,
   );
 
+  $form['api_keys']['stripe_api_version'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Stripe API Version'),
+    '#default_value' => variable_get('stripe_api_version', STRIPE_DEFAULT_API),
+    '#description' => t('Set the Stripe API version to use. If none is set then module will not set a version.'),
+  );
+
   foreach ($keys as $machine_name => $name) {
     $form['api_keys']['stripe_' . $machine_name] = array(
       '#type' => 'textfield',
